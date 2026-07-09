@@ -2,6 +2,7 @@
 Version: 7.0.3
 Date: 09. 07. 2026
   Changes:
+    - Changed the internal mod name to deadlock-beltboxes-loaders-continued for Mod Portal publishing.
     - Bumped the continued release version to 7.0.3.
     - Updated mod metadata, title, homepage and base dependency for Factorio 2.1.
     - Added expanded README documentation with project history, original authors, maintainer status and API reference.
