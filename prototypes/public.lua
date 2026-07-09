@@ -9,6 +9,18 @@ deadlock = {}
 
 ------------------------------------------------------------------------------------------------------------------------------------------------------
 
+local function get_recipe_category(recipe)
+	if recipe then
+		if recipe.categories and recipe.categories[1] then
+			return recipe.categories[1]
+		end
+		if recipe.category then
+			return recipe.category
+		end
+	end
+	return "crafting"
+end
+
 function deadlock.add_tier(tier_table)
 	-- {
 	--  transport_belt      = string, -- mandatory, used for speed etc
@@ -88,11 +100,7 @@ function deadlock.add_tier(tier_table)
 		tier_table.loader_ingredients = data.raw.recipe[tier_table.underground_belt].ingredients
 	end
 	if not tier_table.loader_category then
-		if data.raw.recipe[tier_table.underground_belt] then
-			tier_table.loader_category = data.raw.recipe[tier_table.underground_belt].category
-		else
-			tier_table.loader_category = "crafting"
-		end
+		tier_table.loader_category = get_recipe_category(data.raw.recipe[tier_table.underground_belt])
 	end
 	if not tier_table.loader then
 		tier_table.loader = string.format("%s-loader", tier_table.transport_belt)
@@ -102,11 +110,7 @@ function deadlock.add_tier(tier_table)
 		tier_table.beltbox_ingredients = data.raw.recipe[tier_table.underground_belt].ingredients
 	end
 	if not tier_table.beltbox_category then
-		if data.raw.recipe[tier_table.underground_belt] then
-			tier_table.beltbox_category = data.raw.recipe[tier_table.underground_belt].category
-		else
-			tier_table.beltbox_category = "crafting"
-		end
+		tier_table.beltbox_category = get_recipe_category(data.raw.recipe[tier_table.underground_belt])
 	end
 	if not tier_table.beltbox then
 		tier_table.beltbox = string.format("%s-beltbox", tier_table.transport_belt)
@@ -282,10 +286,6 @@ function deadlock.destroy_stack(base_item_name)
 	DBL.recipe_order[base_item_name] = nil
 end
 
-------------------------------------------------------------------------------------------------------------------------------------------------------
-
--- deadlock.destroy_vanilla_stacks()
--- This is the same as calling destroy_crate() on every vanilla item the mod creates by default
 function deadlock.destroy_vanilla_stacks()
 	for tier,items in ipairs(DBL.VANILLA_ITEMS) do
 		for _,item in pairs(items) do
@@ -313,17 +313,17 @@ function deadlock_loaders.create(tier_table)
 		return
 	end
 	-- translate the legacy table to one that the add_tier function accepts and matching entity names that the old version created
-	tier_table.loader = string.format("deadlock-loader-%d", tier_table.tier)
-	tier_table.loader_ingredients = tier_table.ingredients
-	tier_table.ingredients = nil
-	tier_table.loader_recipe = string.format("deadlock-loader-%d", tier_table.tier)
-	tier_table.loader_item = string.format("deadlock-loader-%d", tier_table.tier)
-	tier_table.loader_category = tier_table.crafting_category
-	tier_table.crafting_category = nil
-	tier_table.beltbox = string.format("deadlock-beltbox-entity-%d", tier_table.tier)
-	tier_table.beltbox_recipe = string.format("deadlock-beltbox-recipe-%d", tier_table.tier)
-	tier_table.beltbox_item = string.format("deadlock-beltbox-item-%d", tier_table.tier)
-	tier_table.beltbox_technology = string.format("deadlock-stacking-%d", tier_table.tier)
+	ier_table.loader = string.format("deadlock-loader-%d", tier_table.tier)
+	ier_table.loader_ingredients = tier_table.ingredients
+	ier_table.ingredients = nil
+	ier_table.loader_recipe = string.format("deadlock-loader-%d", tier_table.tier)
+	ier_table.loader_item = string.format("deadlock-loader-%d", tier_table.tier)
+	ier_table.loader_category = tier_table.crafting_category
+	ier_table.crafting_category = nil
+	ier_table.beltbox = string.format("deadlock-beltbox-entity-%d", tier_table.tier)
+	ier_table.beltbox_recipe = string.format("deadlock-beltbox-recipe-%d", tier_table.tier)
+	ier_table.beltbox_item = string.format("deadlock-beltbox-item-%d", tier_table.tier)
+	ier_table.beltbox_technology = string.format("deadlock-stacking-%d", tier_table.tier)
 
 	DBL.debug(string.format("Calling add_tier for legacy tier %d", tier_table.tier))
 	deadlock.add_tier(tier_table)
