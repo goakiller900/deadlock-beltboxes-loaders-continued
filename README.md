@@ -69,7 +69,7 @@ Add this mod as an optional dependency in your mod's `info.json`:
   "version": "0.1.0",
   "title": "Example Mod",
   "author": "YourName",
-  "dependencies": ["base >= 2.1", "? deadlock-beltboxes-loaders"],
+  "dependencies": ["base >= 2.1", "? deadlock-beltboxes-loaders-continued"],
   "factorio_version": "2.1"
 }
 ```
