@@ -24,15 +24,40 @@ local function get_neighbour_entities(entity, direction)
 	return entity.surface.find_entities_filtered{ position = add_vectors(entity.position, dir2vector[direction]) }
 end
 
+-- Build a compact list from inventory names that exist in the running Factorio version.
+-- Using names avoids passing nil to LuaEntity::get_inventory when an inventory define is renamed.
+local function get_inventory_indices(names)
+	local result = {}
+	local seen = {}
+
+	for _, name in ipairs(names) do
+		local inventory_index = defines.inventory[name]
+		if inventory_index and not seen[inventory_index] then
+			seen[inventory_index] = true
+			table.insert(result, inventory_index)
+		end
+	end
+
+	return result
+end
+
+local loadable_inventories = get_inventory_indices({
+	"chest",
+	"crafter_input",
+	"lab_input",
+	"rocket_silo_rocket",
+})
+
 -- does any entity in list have an inventory we can work with
 local function are_loadable(entities)
-	for _,entity in pairs(entities) do
-		if entity.get_inventory(defines.inventory.chest) or
-			entity.get_inventory(defines.inventory.furnace_source) or
-			entity.get_inventory(defines.inventory.assembling_machine_input) or
-			entity.get_inventory(defines.inventory.lab_input) or
-			entity.get_inventory(defines.inventory.rocket_silo_rocket)
-		then return true end
+	for _, entity in pairs(entities) do
+		if entity.valid then
+			for _, inventory_index in ipairs(loadable_inventories) do
+				if entity.get_inventory(inventory_index) then
+					return true
+				end
+			end
+		end
 	end
 	return false
 end
@@ -115,6 +140,7 @@ local function auto_unstack(item_name, item_count, sending_inventory, receiving_
 		-- if the base item's stack size is lower than the configured STACK_SIZE then
 		-- this should reward the lower of the two
 		local prototype = prototypes.item[string.sub(item_name, 16)]
+		if not prototype then return end
 		if STACK_SIZE > prototype.stack_size then
 			add_count = prototype.stack_size
 		end
@@ -143,15 +169,13 @@ local function auto_unstack(item_name, item_count, sending_inventory, receiving_
 	end
 end
 
-local inventories_to_check = {
-	defines.inventory.chest, 
-	defines.inventory.furnace_source, 
-	defines.inventory.furnace_result,
-	defines.inventory.cargo_wagon,
-	defines.inventory.assembling_machine_input,
-	defines.inventory.assembling_machine_output,
-	defines.inventory.robot_cargo,
-}
+local inventories_to_check = get_inventory_indices({
+	"chest",
+	"crafter_input",
+	"crafter_output",
+	"cargo_wagon",
+	"robot_cargo",
+})
 local function try_unstacking(entity, inventory_type, player_inventory)
 	local mined_entity_inventory = entity.get_inventory(inventory_type)
 	if mined_entity_inventory then
