@@ -1,4 +1,12 @@
 ---------------------------------------------------------------------------------------------------
+Version: 7.0.4
+Date: 11. 07. 2026
+  Bugfixes:
+    - Replaced removed Factorio 1.x inventory defines with the Factorio 2.1 crafter input and output inventories.
+    - Fixed a non-recoverable crash when placing compact loaders next to entities without a chest inventory.
+    - Updated auto-unstack inventory scanning to avoid passing missing inventory indexes to LuaEntity::get_inventory.
+    - Restored a safety check for stacked items whose base item prototype no longer exists.
+---------------------------------------------------------------------------------------------------
 Version: 7.0.3
 Date: 09. 07. 2026
   Changes:
