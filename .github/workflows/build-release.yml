@@ -1,0 +1,227 @@
+name: Build and release Factorio mod
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      publish_factorio_portal:
+        description: Publish this version to the Factorio Mod Portal
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: factorio-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build Factorio archive
+    runs-on: ubuntu-latest
+    env:
+      FACTORIO_API_KEY: ${{ secrets.FACTORIO_API_KEY }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Read mod metadata
+        id: metadata
+        shell: bash
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          from pathlib import Path
+
+          info = json.loads(Path("info.json").read_text(encoding="utf-8"))
+          name = info["name"]
+          version = info["version"]
+          title = info["title"]
+          archive = f"{name}_{version}.zip"
+
+          print(f"name={name}")
+          print(f"version={version}")
+          print(f"title={title}")
+          print(f"tag=v{version}")
+          print(f"archive={archive}")
+          print(f"checksum={archive}.sha256")
+          PY
+
+      - name: Validate and build release archive
+        run: python scripts/build_release.py
+
+      - name: Create or prepare immutable GitHub release
+        if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MOD_TITLE: ${{ steps.metadata.outputs.title }}
+          VERSION: ${{ steps.metadata.outputs.version }}
+          TAG: ${{ steps.metadata.outputs.tag }}
+          ARCHIVE: dist/${{ steps.metadata.outputs.archive }}
+          CHECKSUM: dist/${{ steps.metadata.outputs.checksum }}
+        run: |
+          set -euo pipefail
+
+          git fetch --tags --force
+
+          if git rev-parse --verify --quiet "refs/tags/$TAG" >/dev/null; then
+            tag_sha="$(git rev-list -n 1 "$TAG")"
+
+            if gh release view "$TAG" >/dev/null 2>&1; then
+              rm -rf /tmp/existing-release
+              mkdir -p /tmp/existing-release
+
+              if ! gh release download "$TAG" \
+                --pattern "$(basename "$ARCHIVE")" \
+                --dir /tmp/existing-release; then
+                echo "::error title=Release archive missing::The existing $TAG release does not contain $(basename "$ARCHIVE")."
+                exit 1
+              fi
+
+              existing_archive="/tmp/existing-release/$(basename "$ARCHIVE")"
+              built_digest="$(sha256sum "$ARCHIVE" | awk '{print $1}')"
+              existing_digest="$(sha256sum "$existing_archive" | awk '{print $1}')"
+
+              if [[ "$built_digest" != "$existing_digest" ]]; then
+                echo "::warning title=Using immutable release archive::The current repository tree differs from the existing $TAG archive. The existing release ZIP will be used. Increase info.json version before publishing changed mod contents."
+              else
+                echo "Existing $TAG release contains the identical mod archive."
+              fi
+
+              cp "$existing_archive" "$ARCHIVE"
+              printf '%s  %s\n' "$existing_digest" "$(basename "$ARCHIVE")" > "$CHECKSUM"
+            elif [[ "$tag_sha" == "$GITHUB_SHA" ]]; then
+              gh release create "$TAG" "$ARCHIVE" "$CHECKSUM" \
+                --verify-tag \
+                --title "$MOD_TITLE $VERSION" \
+                --generate-notes
+            else
+              echo "::error title=Version tag already exists::$TAG points to $tag_sha, not $GITHUB_SHA, and has no GitHub Release. Increase the version or repair the tag manually."
+              exit 1
+            fi
+          else
+            gh release create "$TAG" "$ARCHIVE" "$CHECKSUM" \
+              --target "$GITHUB_SHA" \
+              --title "$MOD_TITLE $VERSION" \
+              --generate-notes
+          fi
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.metadata.outputs.name }}_${{ steps.metadata.outputs.version }}
+          path: |
+            dist/${{ steps.metadata.outputs.archive }}
+            dist/${{ steps.metadata.outputs.checksum }}
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+
+      - name: Require API key for manual portal publication
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_factorio_portal && env.FACTORIO_API_KEY == '' }}
+        shell: bash
+        run: |
+          echo "::error title=Missing FACTORIO_API_KEY::Add the Factorio Mod Portal API key as a GitHub Actions repository secret named FACTORIO_API_KEY."
+          exit 1
+
+      - name: Publish to Factorio Mod Portal
+        if: ${{ ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.publish_factorio_portal)) && env.FACTORIO_API_KEY != '' }}
+        shell: bash
+        env:
+          MOD_NAME: ${{ steps.metadata.outputs.name }}
+          VERSION: ${{ steps.metadata.outputs.version }}
+          ARCHIVE: dist/${{ steps.metadata.outputs.archive }}
+        run: |
+          set -euo pipefail
+
+          portal_metadata_file="$(mktemp)"
+          portal_status="$(curl --silent --show-error \
+            --output "$portal_metadata_file" \
+            --write-out '%{http_code}' \
+            "https://mods.factorio.com/api/mods/$MOD_NAME")"
+
+          if [[ "$portal_status" == "200" ]]; then
+            if PORTAL_METADATA_FILE="$portal_metadata_file" VERSION="$VERSION" python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          metadata = json.loads(Path(os.environ["PORTAL_METADATA_FILE"]).read_text(encoding="utf-8"))
+          version = os.environ["VERSION"]
+          releases = metadata.get("releases", [])
+          raise SystemExit(0 if any(release.get("version") == version for release in releases) else 1)
+          PY
+            then
+              echo "Factorio Mod Portal already contains $MOD_NAME version $VERSION; skipping upload."
+              exit 0
+            fi
+          elif [[ "$portal_status" != "404" ]]; then
+            echo "::error title=Portal lookup failed::Factorio Mod Portal returned HTTP $portal_status while checking $MOD_NAME."
+            cat "$portal_metadata_file"
+            exit 1
+          fi
+
+          init_response="$(curl --fail-with-body --silent --show-error \
+            --request POST \
+            --header "Authorization: Bearer $FACTORIO_API_KEY" \
+            --header "Content-Type: application/x-www-form-urlencoded" \
+            --data-urlencode "mod=$MOD_NAME" \
+            "https://mods.factorio.com/api/v2/mods/releases/init_upload")"
+
+          upload_url="$(INIT_RESPONSE="$init_response" python - <<'PY'
+          import json
+          import os
+          import sys
+
+          response = json.loads(os.environ["INIT_RESPONSE"])
+          if response.get("error"):
+              print(
+                  f"Factorio Mod Portal error: {response.get('error')}: {response.get('message', '')}",
+                  file=sys.stderr,
+              )
+              raise SystemExit(1)
+
+          upload_url = response.get("upload_url")
+          if not upload_url:
+              print("Factorio Mod Portal did not return an upload URL.", file=sys.stderr)
+              raise SystemExit(1)
+
+          print(upload_url)
+          PY
+          )"
+
+          upload_response="$(curl --fail-with-body --silent --show-error \
+            --request POST \
+            --header "Authorization: Bearer $FACTORIO_API_KEY" \
+            --form "file=@$ARCHIVE;type=application/zip" \
+            "$upload_url")"
+
+          UPLOAD_RESPONSE="$upload_response" python - <<'PY'
+          import json
+          import os
+          import sys
+
+          response = json.loads(os.environ["UPLOAD_RESPONSE"])
+          if response.get("error"):
+              print(
+                  f"Factorio Mod Portal error: {response.get('error')}: {response.get('message', '')}",
+                  file=sys.stderr,
+              )
+              raise SystemExit(1)
+          PY
+
+          echo "Published $MOD_NAME version $VERSION to the Factorio Mod Portal."
