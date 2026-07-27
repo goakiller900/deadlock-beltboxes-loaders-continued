@@ -101,7 +101,11 @@ local function product_type(product)
 end
 
 local function exact_product_amount(product)
-	if product.probability and product.probability ~= 1 then
+	if product.probability ~= nil
+		or product.amount_min ~= nil
+		or product.amount_max ~= nil
+		or product.extra_count_fraction ~= nil
+	then
 		return nil
 	end
 	if product.amount then
@@ -109,9 +113,6 @@ local function exact_product_amount(product)
 	end
 	if product[2] then
 		return product[2]
-	end
-	if product.amount_min and product.amount_max and product.amount_min == product.amount_max then
-		return product.amount_min
 	end
 	return nil
 end
@@ -220,6 +221,7 @@ local function is_exact_recipe_entry(entry, item_name, amount, is_product)
 		entry.probability ~= nil
 		or entry.amount_min ~= nil
 		or entry.amount_max ~= nil
+		or entry.extra_count_fraction ~= nil
 	) then
 		return false
 	end
@@ -526,7 +528,9 @@ local function recipe_category_is_available(recipe)
 end
 
 local function recipe_is_usable(recipe)
-	return (recipe.enabled ~= false or recipe_is_unlocked(recipe.name))
+	return recipe.surface_conditions == nil
+		and recipe.allow_productivity ~= true
+		and (recipe.enabled ~= false or recipe_is_unlocked(recipe.name))
 		and recipe_category_is_available(recipe)
 end
 
@@ -638,6 +642,7 @@ local function create_bundle(residue_name, residue, represented_count)
 		hide_from_stats = true,
 		auto_recycle = false,
 		can_set_quality = true,
+		allow_productivity = false,
 	}
 
 	data:extend({bundle, recipe})

@@ -7,6 +7,7 @@ Date: 27. 07. 2026
     - Hardened Factorio 2.1 stacked-fuel property synchronization and stale-property cleanup.
     - Preserved exact fuel energy and burnt-result material balance across configured stack densities.
     - Rejected malformed stack recipes, ambiguous third-party conversions and prototype-name collisions.
+    - Rejected residue conversions with probabilistic extras, productivity or surface restrictions.
 ---------------------------------------------------------------------------------------------------
 Version: 7.0.5
 Date: 27. 07. 2026

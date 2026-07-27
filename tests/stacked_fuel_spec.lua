@@ -201,6 +201,7 @@ expect_equal(data.raw.recipe[ash_50_recipe].hidden, true, "bundle recipe is hidd
 expect_equal(data.raw.recipe[ash_50_recipe].hidden_in_factoriopedia, true, "bundle recipe is hidden from Factoriopedia")
 expect_equal(data.raw.recipe[ash_50_recipe].hide_from_player_crafting, true, "bundle recipe is hidden from player crafting")
 expect_equal(data.raw.recipe[ash_50_recipe].auto_recycle, false, "bundle recipe is not auto-recycled")
+expect_equal(data.raw.recipe[ash_50_recipe].allow_productivity, false, "bundle recipe explicitly disables productivity")
 expect_equal(data.raw.item[ash_50_bundle].auto_recycle, false, "bundle item is not auto-recycled")
 
 -- Multiple fuels sharing the same residue and represented count reuse one bundle.
@@ -574,7 +575,70 @@ add_item("third-party-fuel", {
 })
 local third_party_stack = add_stack_pair("third-party-fuel")
 third_party_stack.burnt_result = "third-party-bundle"
-expect_equal(update("third-party-fuel").burnt_result, "third-party-bundle", "exact third-party residue bundle is preserved")
+expect_equal(update("third-party-fuel").burnt_result, "third-party-bundle", "unrestricted exact third-party residue bundle is preserved")
+
+local rejected_third_party_index = 0
+local function expect_rejected_third_party_conversion(label, recipe_properties, result_properties)
+	rejected_third_party_index = rejected_third_party_index + 1
+	local suffix = tostring(rejected_third_party_index)
+	local residue_name = "rejected-third-party-residue-" .. suffix
+	local bundle_name = "rejected-third-party-bundle-" .. suffix
+	local fuel_name = "rejected-third-party-fuel-" .. suffix
+	add_item(residue_name)
+	add_item(bundle_name)
+	local recipe = {
+		type = "recipe",
+		name = "rejected-third-party-unpack-" .. suffix,
+		categories = {"crafting"},
+		enabled = true,
+		ingredients = {{type = "item", name = bundle_name, amount = 1}},
+		results = {{type = "item", name = residue_name, amount = 5}},
+	}
+	for key, value in pairs(recipe_properties or {}) do
+		recipe[key] = value
+	end
+	for key, value in pairs(result_properties or {}) do
+		recipe.results[1][key] = value
+	end
+	if recipe.results[1].amount_min ~= nil or recipe.results[1].amount_max ~= nil then
+		recipe.results[1].amount = nil
+	end
+	data.raw.recipe[recipe.name] = recipe
+	add_item(fuel_name, {
+		fuel_value = "1MJ",
+		fuel_category = "chemical",
+		burnt_result = residue_name,
+	})
+	local stacked_fuel = add_stack_pair(fuel_name)
+	stacked_fuel.burnt_result = bundle_name
+	local result = update(fuel_name)
+	expect(result.fuel_value == nil, label .. " disables stacked fuel")
+	expect(result.burnt_result == nil, label .. " clears the unproven burnt result")
+end
+
+expect_rejected_third_party_conversion(
+	"third-party conversion with extra_count_fraction",
+	nil,
+	{extra_count_fraction = 0.25}
+)
+expect_rejected_third_party_conversion(
+	"third-party conversion with a probability field",
+	nil,
+	{probability = 1}
+)
+expect_rejected_third_party_conversion(
+	"third-party conversion with amount range fields",
+	nil,
+	{amount_min = 5, amount_max = 5}
+)
+expect_rejected_third_party_conversion(
+	"third-party conversion with surface conditions",
+	{surface_conditions = {{property = "gravity", min = 1}}}
+)
+expect_rejected_third_party_conversion(
+	"productivity-enabled third-party conversion",
+	{allow_productivity = true}
+)
 
 add_item("ambiguous-residue")
 add_item("ambiguous-bundle")
@@ -632,6 +696,9 @@ end)
 expect_invalid_stack_recipe("probability fields are rejected even when probability is one", function(stack_recipe)
 	stack_recipe.results[1].probability = 1
 end)
+expect_invalid_stack_recipe("extra_count_fraction fields are rejected", function(_, unstack_recipe)
+	unstack_recipe.results[1].extra_count_fraction = 0.25
+end)
 expect_invalid_stack_recipe("recipes restricted to normal quality are rejected", function(stack_recipe)
 	stack_recipe.can_set_quality = false
 end)
@@ -681,6 +748,19 @@ add_item("unavailable-category-fuel", {
 })
 add_stack_pair("unavailable-category-fuel")
 expect_equal(update("unavailable-category-fuel").burnt_result, "deadlock-stacked-fuel-residue-unavailable-category-residue-5", "unavailable recipe category does not make normal residue conversion usable")
+
+add_item("conditional-residue")
+add_stack_pair("conditional-residue")
+data.raw.recipe["deadlock-stacks-unstack-conditional-residue"].surface_conditions = {
+	{property = "gravity", min = 1},
+}
+add_item("conditional-fuel", {
+	fuel_value = "1MJ",
+	fuel_category = "chemical",
+	burnt_result = "conditional-residue",
+})
+add_stack_pair("conditional-fuel")
+expect_equal(update("conditional-fuel").burnt_result, "deadlock-stacked-fuel-residue-conditional-residue-5", "surface-conditional normal residue conversion is rejected")
 
 -- Missing residue prototypes and icons fail closed.
 add_item("missing-residue-fuel", {

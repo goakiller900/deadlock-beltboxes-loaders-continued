@@ -112,7 +112,9 @@ exact represented residue quantity:
   conversion cannot be proven. The item must then be unstacked before burning.
 
 The API never substitutes one ordinary residue item or a mismatched normal
-residue stack.
+residue stack. Exact conversions are rejected when recipes use probability,
+amount ranges, `extra_count_fraction`, quality modifiers, productivity, or
+`surface_conditions`.
 
 | Parameter | Required | Description |
 |---|---:|---|
