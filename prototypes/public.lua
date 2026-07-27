@@ -177,6 +177,10 @@ function deadlock.add_stack(item_name, graphic_path, target_tech, icon_size, ite
 	if not item_type then
 		item_type = "item"
 	end
+	if DBL.is_exact_residue_bundle(item_name) then
+		DBL.log_warning(string.format("Refusing to create a recursive stack for exact residue bundle %s", item_name))
+		return
+	end
 	if not allowed_item_types[item_type] then
 		DBL.log_error(string.format("Item type not allowed for %s", item_name))
 		return
@@ -197,6 +201,7 @@ function deadlock.add_stack(item_name, graphic_path, target_tech, icon_size, ite
 		local stack_size = deadlock.get_item_stack_density(item_name, item_type)
 		DBL.create_stacked_item(item_name, item_type, graphic_path, icon_size, stack_size, mipmap_levels)
 		DBL.create_stacking_recipes(item_name, item_type, stack_size)
+		DBL.update_stacked_item(item_name, item_type)
 		if target_tech then
 			DBL.add_stacks_to_tech(item_name, target_tech)
 		end

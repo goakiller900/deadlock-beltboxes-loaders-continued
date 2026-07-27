@@ -1,18 +1,5 @@
 local DBL = require("prototypes.shared")
-
-local function multiply_number_unit(property, mult)
-	local value, unit
-	value = string.match(property, "%d+")
-	if string.match(property, "%d+%.%d+") then
-		value = string.match(property, "%d+%.%d+")
-	end
-	unit = string.match(property, "%a+")
-	if unit == nil then
-		return value * mult
-	else
-		return ((value * mult) .. unit)
-	end
-end
+require("prototypes.stacked_fuel")
 
 local function get_group(item, item_type)
 	local g = data.raw["item-group"][data.raw["item-subgroup"][data.raw[item_type][item].subgroup].group].name
@@ -83,28 +70,30 @@ function DBL.create_stacked_item(item_name, item_type, graphic_path, icon_size, 
 	DBL.debug(string.format("Created stacked item: %s", item_name))
 end
 
+function DBL.update_stacked_item(item_name, item_type)
+	local stacked_item_name = string.format("deadlock-stack-%s", item_name)
+	if not data.raw[item_type][item_name] then
+		DBL.log_warning("Item \""..item_name.."\" appears to have been deleted since it was added to the deferred item updates list, skipping it.")
+		return
+	end
+	if not data.raw.item[stacked_item_name] then
+		DBL.log_warning("Stacked item \""..stacked_item_name.."\" appears to have been deleted since it was created, skipping it.")
+		return
+	end
+
+	local stack_size = deadlock.get_item_stack_density(item_name, item_type)
+	data.raw.item[stacked_item_name].subgroup = string.format("stacks-%s", get_group(item_name, item_type))
+	data.raw.item[stacked_item_name].stack_size = math.floor(data.raw[item_type][item_name].stack_size/stack_size)
+	data.raw.item[stacked_item_name].localised_name = {"item-name.deadlock-stacking-stack", get_localised_name(item_name), tostring(stack_size)}
+	if data.raw[item_type][item_name].stack_size % stack_size > 0 then
+		DBL.log_warning(string.format("Full stack density for %s is reduced to %d from source stack size %d, doesn't divide cleanly by %d", stacked_item_name, (data.raw.item[stacked_item_name].stack_size * stack_size), data.raw[item_type][item_name].stack_size, stack_size))
+	end
+	DBL.update_stacked_fuel(stacked_item_name, item_name, item_type)
+end
+
 function DBL.deferred_stacked_item_updates()
-	for stacked_item_name, item_table in pairs(items_to_update) do
-		local item_name = item_table.item_name
-		local item_type = item_table.item_type
-		if data.raw[item_type][item_name] then
-			local stack_size = deadlock.get_item_stack_density(item_name, item_type)
-			data.raw.item[stacked_item_name].subgroup = string.format("stacks-%s", get_group(item_name, item_type))
-			data.raw.item[stacked_item_name].stack_size = math.floor(data.raw[item_type][item_name].stack_size/stack_size)
-			data.raw.item[stacked_item_name].localised_name = {"item-name.deadlock-stacking-stack", get_localised_name(item_name), tostring(stack_size)}
-			if data.raw[item_type][item_name].stack_size % stack_size > 0 then
-				DBL.log_warning(string.format("Full stack density for %s is reduced to %d from source stack size %d, doesn't divide cleanly by %d", stacked_item_name, (data.raw.item[stacked_item_name].stack_size * stack_size), data.raw[item_type][item_name].stack_size, stack_size))
-			end
-			if data.raw[item_type][item_name].fuel_value then
-				data.raw.item[stacked_item_name].fuel_category = data.raw[item_type][item_name].fuel_category
-				data.raw.item[stacked_item_name].fuel_acceleration_multiplier = data.raw[item_type][item_name].fuel_acceleration_multiplier
-				data.raw.item[stacked_item_name].fuel_top_speed_multiplier = data.raw[item_type][item_name].fuel_top_speed_multiplier
-				data.raw.item[stacked_item_name].fuel_emissions_multiplier = data.raw[item_type][item_name].fuel_emissions_multiplier
-				data.raw.item[stacked_item_name].fuel_value = multiply_number_unit(data.raw[item_type][item_name].fuel_value, stack_size)
-			end
-		else
-			DBL.log_warning("Item \""..item_name.."\" appears to have been deleted since it was added to the deferred item updates list, skipping it.")
-		end
+	for _, item_table in pairs(items_to_update) do
+		DBL.update_stacked_item(item_table.item_name, item_table.item_type)
 	end
 end
 

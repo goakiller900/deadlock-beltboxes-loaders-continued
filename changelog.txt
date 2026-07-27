@@ -1,4 +1,11 @@
 ---------------------------------------------------------------------------------------------------
+Version: 7.0.5
+Date: 27. 07. 2026
+  Bugfixes:
+    - Preserved exact burnt-result quantities when stacked fuels are burned.
+    - Added deterministic residue bundles for fuels whose stack density differs from their burnt result.
+    - Disabled unsafe stacked-fuel behavior when an exact residue conversion cannot be proven.
+---------------------------------------------------------------------------------------------------
 Version: 7.0.4
 Date: 11. 07. 2026
   Bugfixes:
