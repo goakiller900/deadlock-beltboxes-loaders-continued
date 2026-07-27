@@ -1,9 +1,10 @@
 # Development tests
 
 `stacked_fuel_spec.lua` runs the prototype-stage stacked-fuel logic against a
-small mocked Factorio data environment. It covers recipe-derived quantities,
-batch recipes, matching and mismatched residues, exact bundle reuse, fuel
-properties, third-party conflicts, and fail-closed behavior.
+small mocked Factorio data environment. It covers repository-derived stack
+densities, canonical and batch recipe validation, matching and mismatched
+residues, exact bundle reuse, current fuel properties, third-party conflicts,
+and fail-closed behavior.
 
 Run it with Lua 5.2 or newer:
 

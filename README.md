@@ -95,8 +95,11 @@ If you have many items, place them in a table and loop through them.
 ### `deadlock.add_stack(item_name, graphic_path, target_tech, icon_size, item_type, mipmap_levels)`
 
 Creates a stacked version of an item, plus stacking and unstacking recipes. The
-number of ordinary items represented by one stacked item is derived from the
-generated recipe ratios.
+number of ordinary items represented by one stacked item is the effective
+Deadlock density: the lower of the global stack-size setting and the source
+item's prototype `stack_size`. The generated recipes must still exactly match
+that density (and the configured batch multiplier) or stacked fuel behavior is
+disabled.
 
 For fuels, the stacked item preserves the source fuel properties and total
 energy. If the source fuel has a `burnt_result`, the API also preserves the
@@ -148,9 +151,9 @@ end
 ```
 
 This helper reflects the current prototypes when it is called. For existing
-generated stacks, inspect their actual stack and unstack recipes when exact
-represented quantities are required because other mods may modify recipes
-independently.
+generated stacks, the fuel synchronizer also verifies that the stack and
+unstack recipes still exactly match this density. Altered, probabilistic,
+fluid-containing, or otherwise noncanonical recipes fail closed.
 
 ### `deadlock.deferred_stacked_item_updates()`
 
