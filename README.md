@@ -94,15 +94,30 @@ If you have many items, place them in a table and loop through them.
 
 ### `deadlock.add_stack(item_name, graphic_path, target_tech, icon_size, item_type, mipmap_levels)`
 
-Creates a stacked version of an item, plus stacking and unstacking recipes.
+Creates a stacked version of an item, plus stacking and unstacking recipes. The
+number of ordinary items represented by one stacked item is derived from the
+generated recipe ratios.
+
+For fuels, the stacked item preserves the source fuel properties and total
+energy. If the source fuel has a `burnt_result`, the API also preserves the
+exact represented residue quantity:
+
+- A normal stacked residue is used when its recipe-derived quantity matches.
+- A deterministic exact-count residue bundle is generated only when the
+  quantities differ or no usable residue stack exists.
+- Fuel behavior is removed from the stacked item when an exact, usable residue
+  conversion cannot be proven. The item must then be unstacked before burning.
+
+The API never substitutes one ordinary residue item or a mismatched normal
+residue stack.
 
 | Parameter | Required | Description |
 |---|---:|---|
 | `item_name` | Yes | Name of the base item to stack, for example `iron-plate`. |
 | `graphic_path` | No | Path to a custom stacked icon. Strongly recommended for performance and visual quality. |
 | `target_tech` | No | Technology that unlocks the stacking/unstacking recipes, for example `deadlock-stacking-1`. If omitted, your own mod must handle recipe unlocks. |
-| `icon_size` | No | Icon size in pixels. Defaults to `64`. |
-| `item_type` | No | Prototype type. Defaults to `item`. Other supported types include `ammo`, `gun`, `tool`, `repair-tool`, `module`, `capsule`, and `rail-planner`. |
+| `icon_size` | No | Icon size in pixels. Defaults to `64`. Supported values are `32`, `64`, and `128`. |
+| `item_type` | No | Prototype type. Defaults to `item`. Supported types are `item`, `ammo`, `gun`, `tool`, `repair-tool`, `module`, `item-with-label`, `item-with-tags`, `capsule`, and `rail-planner`. |
 | `mipmap_levels` | No | Mipmap levels for the custom icon, only used when `graphic_path` is supplied. |
 
 Example:
@@ -114,6 +129,39 @@ end
 ```
 
 When no custom icon is supplied, the mod attempts to generate a layered icon automatically from the base item. This is convenient, but custom icons are better for performance and appearance.
+
+Do not pass implementation-only exact residue bundles back to
+`deadlock.add_stack()`. Bundle item names start with
+`deadlock-stacked-fuel-residue-`; the API rejects attempts to stack them
+recursively.
+
+### `deadlock.get_item_stack_density(item_name, item_type)`
+
+Returns the effective density Deadlock would use for the item. This is the
+lower of the global `deadlock-stack-size` startup setting and the item's current
+prototype `stack_size`.
+
+```lua
+if deadlock then
+  local density = deadlock.get_item_stack_density("iron-plate", "item")
+end
+```
+
+This helper reflects the current prototypes when it is called. For existing
+generated stacks, inspect their actual stack and unstack recipes when exact
+represented quantities are required because other mods may modify recipes
+independently.
+
+### `deadlock.deferred_stacked_item_updates()`
+
+Reapplies late prototype updates to every stacked item registered through
+`deadlock.add_stack()`. This includes stack-size metadata, fuel energy,
+fuel-property copying, and exact burnt-result handling.
+
+Deadlock calls this automatically from its own `data-final-fixes.lua`.
+Compatibility mods normally do not need to call it. If a mod changes source
+item or generated recipe prototypes after creating stacks, it may call this
+once after those changes are complete.
 
 ### `deadlock.destroy_stack(item_name)`
 
