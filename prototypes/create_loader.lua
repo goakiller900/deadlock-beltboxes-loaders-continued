@@ -15,6 +15,22 @@ local function create_loader_belt_component(source)
 	return component
 end
 
+local function create_loader_frozen_patch(structure, direction)
+	local frozen_back = table.deepcopy(structure.back_patch.sheet)
+	frozen_back.filename = "__deadlock-beltboxes-loaders-continued__/graphics/entities/high/loader-back-frozen.png"
+
+	local frozen_base = table.deepcopy(direction.sheets[2])
+	frozen_base.filename = "__deadlock-beltboxes-loaders-continued__/graphics/entities/high/loader-base-frozen.png"
+
+	return {
+		sheets = {
+			frozen_back,
+			frozen_base,
+			table.deepcopy(direction.sheets[3]),
+		},
+	}
+end
+
 local function create_loader_entity(tier_table)
 	local entity = {}
 	entity.type = "loader-1x1"
@@ -122,6 +138,11 @@ local function create_loader_entity(tier_table)
 			},
 		}
 	}
+	if mods["space-age"] then
+		entity.heating_energy = "10kW"
+		entity.structure.frozen_patch_in = create_loader_frozen_patch(entity.structure, entity.structure.direction_in)
+		entity.structure.frozen_patch_out = create_loader_frozen_patch(entity.structure, entity.structure.direction_out)
+	end
 	if data.raw["transport-belt"][tier_table.transport_belt].belt_animation_set then
 		entity.belt_animation_set = data.raw["transport-belt"][tier_table.transport_belt].belt_animation_set
 	else

@@ -121,6 +121,26 @@ local function create_beltbox_entity(tier_table)
 		},
 		show_recipe_icon = settings.startup["deadlock-stacking-show-alt-info"].value,
 	}
+	if mods["space-age"] then
+		local frozen_base = table.deepcopy(entity.graphics_set.animation.layers[1])
+		frozen_base.filename = "__deadlock-beltboxes-loaders-continued__/graphics/entities/high/beltbox-base-frozen.png"
+		frozen_base.animation_speed = nil
+		frozen_base.frame_count = nil
+		frozen_base.line_length = nil
+
+		local frozen_mask = table.deepcopy(entity.graphics_set.animation.layers[2])
+		frozen_mask.animation_speed = nil
+		frozen_mask.repeat_count = nil
+
+		entity.heating_energy = "100kW"
+		entity.graphics_set.frozen_patch = {
+			layers = {
+				frozen_base,
+				frozen_mask,
+			},
+		}
+		entity.graphics_set.reset_animation_when_frozen = true
+	end
 	if settings.startup["deadlock-strict-fast-replace-beltboxes"].value then
 		entity.fast_replaceable_group = "deadlock-beltbox"
 	else
