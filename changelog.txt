@@ -1,4 +1,13 @@
 ---------------------------------------------------------------------------------------------------
+Version: 7.0.6
+Date: 27. 07. 2026
+  Changes:
+    - Kept generated hidden residue bundles deterministic and append-only during prototype loading.
+  Bugfixes:
+    - Hardened Factorio 2.1 stacked-fuel property synchronization and stale-property cleanup.
+    - Preserved exact fuel energy and burnt-result material balance across configured stack densities.
+    - Rejected malformed stack recipes, ambiguous third-party conversions and prototype-name collisions.
+---------------------------------------------------------------------------------------------------
 Version: 7.0.5
 Date: 27. 07. 2026
   Bugfixes:

@@ -213,9 +213,11 @@ add_item("coke-high", {
 add_stack_pair("coke-high", 4)
 local coke_high = update("coke-high")
 expect_equal(coke_high.burnt_result, ash_50_bundle, "multiple fuels reuse the deterministic exact-count bundle")
+local coal_high_ratio = DBL.get_stack_represented_ratio("coal-high", "item")
+expect_equal(coal_high_ratio and coal_high_ratio.numerator, 50, "the represented count respects the source item stack-size cap")
 DBL.RECIPE_MULTIPLIER = 1
 
--- Residue density lower than fuel density still has an exact, hand-craftable conversion.
+-- Residue density lower than fuel density still has an exact unstacking conversion.
 DBL.STACK_SIZE = 100
 add_item("small-residue", {stack_size = 20})
 add_stack_pair("small-residue")
@@ -333,10 +335,19 @@ local late_fuel = update("late-fuel")
 local late_bundle = "deadlock-stacked-fuel-residue-late-residue-6"
 local late_bundle_recipe = "deadlock-stacked-fuel-residue-unpack-late-residue-6"
 expect_equal(late_fuel.burnt_result, late_bundle, "missing residue stack initially uses a bundle")
+local retained_bundle_item = data.raw.item[late_bundle]
+local retained_bundle_recipe = data.raw.recipe[late_bundle_recipe]
 add_stack_pair("late-residue")
 expect_equal(update("late-fuel").burnt_result, "deadlock-stack-late-residue", "a later matching normal residue stack is preferred")
-expect(data.raw.item[late_bundle] == nil, "unused generated bundle item is removed")
-expect(data.raw.recipe[late_bundle_recipe] == nil, "unused generated bundle recipe is removed")
+expect(data.raw.item[late_bundle] ~= nil, "the old hidden bundle item remains available")
+expect(data.raw.recipe[late_bundle_recipe] ~= nil, "the old hidden bundle recipe remains available")
+expect(data.raw.item[late_bundle].hidden, "the retained bundle item stays hidden")
+expect(data.raw.recipe[late_bundle_recipe].hidden, "the retained bundle recipe stays hidden")
+expect_equal(update("late-fuel").burnt_result, "deadlock-stack-late-residue", "a retained old bundle does not affect the selected normal residue")
+data.raw.recipe["deadlock-stacks-unstack-late-residue"].categories = {"unused-test-category"}
+expect_equal(update("late-fuel").burnt_result, late_bundle, "the deterministic bundle is reused when the normal conversion becomes unavailable")
+expect_equal(data.raw.item[late_bundle], retained_bundle_item, "bundle reuse does not replace the retained item prototype")
+expect_equal(data.raw.recipe[late_bundle_recipe], retained_bundle_recipe, "bundle reuse does not replace the retained recipe prototype")
 
 -- Noncanonical recipe amounts cannot prove represented count and disable fuel safely.
 DBL.STACK_SIZE = 5
@@ -512,7 +523,8 @@ local changed_bundle_b = "deadlock-stacked-fuel-residue-changed-residue-b-5"
 expect_equal(changed_residue_stack.burnt_result, changed_bundle_a, "initial generated residue bundle is synchronized")
 changed_residue_source.burnt_result = "changed-residue-b"
 expect_equal(update("changed-residue-fuel").burnt_result, changed_bundle_b, "late source burnt-result changes are synchronized")
-expect(data.raw.item[changed_bundle_a] == nil, "obsolete generated residue bundle is removed")
+expect(data.raw.item[changed_bundle_a] ~= nil, "the obsolete generated residue bundle remains hidden")
+expect_equal(update("changed-residue-fuel").burnt_result, changed_bundle_b, "an obsolete retained bundle does not affect the current result")
 
 -- Source stack-size changes invalidate stale recipes; stacked item capacity changes do not.
 DBL.STACK_SIZE = 10
@@ -614,11 +626,17 @@ end)
 expect_invalid_stack_recipe("fluid ingredients are rejected", function(stack_recipe)
 	table.insert(stack_recipe.ingredients, {type = "fluid", name = "water", amount = 1})
 end)
+expect_invalid_stack_recipe("fluid products are rejected", function(_, unstack_recipe)
+	table.insert(unstack_recipe.results, {type = "fluid", name = "water", amount = 1})
+end)
 expect_invalid_stack_recipe("probability fields are rejected even when probability is one", function(stack_recipe)
 	stack_recipe.results[1].probability = 1
 end)
 expect_invalid_stack_recipe("recipes restricted to normal quality are rejected", function(stack_recipe)
 	stack_recipe.can_set_quality = false
+end)
+expect_invalid_stack_recipe("quality-changing recipe products are rejected", function(_, unstack_recipe)
+	unstack_recipe.results[1].quality_change = 1
 end)
 expect_invalid_stack_recipe("arbitrary recipes are rejected even when their ratios agree", function(stack_recipe, unstack_recipe)
 	stack_recipe.ingredients[1].amount = 10

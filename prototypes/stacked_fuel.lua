@@ -3,8 +3,6 @@ local DBL = require("prototypes.shared")
 local BUNDLE_PREFIX = "deadlock-stacked-fuel-residue-"
 local BUNDLE_RECIPE_PREFIX = "deadlock-stacked-fuel-residue-unpack-"
 local verified_exact_bundles = {}
-local verified_bundle_recipes = {}
-local remove_unused_bundle
 
 local item_prototype_types = {
 	"item",
@@ -388,14 +386,10 @@ local function multiply_number_unit(property, multiplier)
 end
 
 local function remove_fuel_properties(stacked_item)
-	local previous_burnt_result = stacked_item.burnt_result
 	stacked_item.fuel_value = nil
 	stacked_item.burnt_result = nil
 	for _, property_name in ipairs(fuel_properties) do
 		stacked_item[property_name] = nil
-	end
-	if remove_unused_bundle then
-		remove_unused_bundle(previous_burnt_result)
 	end
 end
 
@@ -648,7 +642,6 @@ local function create_bundle(residue_name, residue, represented_count)
 
 	data:extend({bundle, recipe})
 	verified_exact_bundles[name] = true
-	verified_bundle_recipes[name] = recipe_name
 	DBL.debug(string.format(
 		"Created exact residue bundle %s representing %d %s",
 		name,
@@ -656,62 +649,6 @@ local function create_bundle(residue_name, residue, represented_count)
 		residue_name
 	))
 	return name
-end
-
-local function contains_reference(value, item_name, recipe_name, seen)
-	if type(value) == "string" then
-		return value == item_name or value == recipe_name
-	end
-	if type(value) ~= "table" then
-		return false
-	end
-	seen = seen or {}
-	if seen[value] then
-		return false
-	end
-	seen[value] = true
-	for key, nested in pairs(value) do
-		if contains_reference(key, item_name, recipe_name, seen)
-			or contains_reference(nested, item_name, recipe_name, seen)
-		then
-			return true
-		end
-	end
-	return false
-end
-
-remove_unused_bundle = function(item_name)
-	local recipe_name = verified_bundle_recipes[item_name]
-	if not recipe_name then
-		return
-	end
-
-	for prototype_type, prototypes in pairs(data.raw) do
-		for prototype_name, prototype in pairs(prototypes) do
-			local is_bundle_item = prototype_type == "item" and prototype_name == item_name
-			local is_bundle_recipe = prototype_type == "recipe" and prototype_name == recipe_name
-			if not is_bundle_item
-				and not is_bundle_recipe
-				and contains_reference(prototype, item_name, recipe_name)
-			then
-				return
-			end
-		end
-	end
-
-	data.raw.recipe[recipe_name] = nil
-	data.raw.item[item_name] = nil
-	verified_bundle_recipes[item_name] = nil
-	verified_exact_bundles[item_name] = nil
-	DBL.debug(string.format("Removed unused exact residue bundle %s", item_name))
-end
-
-local function set_burnt_result(stacked_item, item_name)
-	local previous_burnt_result = stacked_item.burnt_result
-	stacked_item.burnt_result = item_name
-	if previous_burnt_result ~= item_name then
-		remove_unused_bundle(previous_burnt_result)
-	end
 end
 
 local function existing_result_is_known_incorrect(existing_result, residue_name, normal_stack_name)
@@ -786,7 +723,7 @@ function DBL.update_stacked_fuel(stacked_item_name, source_item_name, source_ite
 	end
 
 	if not source_item.burnt_result then
-		set_burnt_result(stacked_item, nil)
+		stacked_item.burnt_result = nil
 		return
 	end
 
@@ -808,7 +745,7 @@ function DBL.update_stacked_fuel(stacked_item_name, source_item_name, source_ite
 			return
 		end
 		if normal_result and DBL.is_exact_residue_bundle(existing_result) then
-			set_burnt_result(stacked_item, normal_result)
+			stacked_item.burnt_result = normal_result
 			return
 		end
 		if (existing_result == residue_name and ratios_equal(source_ratio, make_ratio(1, 1)))
@@ -840,7 +777,7 @@ function DBL.update_stacked_fuel(stacked_item_name, source_item_name, source_ite
 		return
 	end
 
-	set_burnt_result(stacked_item, desired_result)
+	stacked_item.burnt_result = desired_result
 end
 
 return DBL
