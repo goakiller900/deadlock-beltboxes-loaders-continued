@@ -4,13 +4,18 @@ on:
   pull_request:
   push:
     branches:
-      - main
+      - "**"
   workflow_dispatch:
     inputs:
+      create_github_release:
+        description: Create or update the immutable GitHub Release for this version
+        required: false
+        default: false
+        type: boolean
       publish_factorio_portal:
         description: Publish this version to the Factorio Mod Portal
         required: false
-        default: true
+        default: false
         type: boolean
 
 permissions:
@@ -44,6 +49,8 @@ jobs:
         run: |
           python - <<'PY' >> "$GITHUB_OUTPUT"
           import json
+          import os
+          import re
           from pathlib import Path
 
           info = json.loads(Path("info.json").read_text(encoding="utf-8"))
@@ -51,6 +58,10 @@ jobs:
           version = info["version"]
           title = info["title"]
           archive = f"{name}_{version}.zip"
+          ref_name = os.environ.get("GITHUB_HEAD_REF") or os.environ.get("GITHUB_REF_NAME", "unknown-ref")
+          safe_ref = re.sub(r"[^A-Za-z0-9._-]+", "-", ref_name).strip("-.") or "unknown-ref"
+          short_sha = os.environ["GITHUB_SHA"][:7]
+          artifact = f"{name}_{version}_{safe_ref}_{short_sha}"
 
           print(f"name={name}")
           print(f"version={version}")
@@ -58,13 +69,21 @@ jobs:
           print(f"tag=v{version}")
           print(f"archive={archive}")
           print(f"checksum={archive}.sha256")
+          print(f"artifact={artifact}")
           PY
 
       - name: Validate and build release archive
         run: python scripts/build_release.py
 
+      - name: Block publication from non-main branches
+        if: ${{ github.event_name == 'workflow_dispatch' && (inputs.create_github_release || inputs.publish_factorio_portal) && github.ref != 'refs/heads/main' }}
+        shell: bash
+        run: |
+          echo "::error title=Publication restricted to main::Publishing actions are only allowed when this workflow is run from the main branch. For test branches, leave both publication options disabled and download the workflow artifact instead."
+          exit 1
+
       - name: Create or prepare immutable GitHub release
-        if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch' }}
+        if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.create_github_release) }}
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -123,7 +142,7 @@ jobs:
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.metadata.outputs.name }}_${{ steps.metadata.outputs.version }}
+          name: ${{ steps.metadata.outputs.artifact }}
           path: |
             dist/${{ steps.metadata.outputs.archive }}
             dist/${{ steps.metadata.outputs.checksum }}
@@ -132,14 +151,14 @@ jobs:
           retention-days: 30
 
       - name: Require API key for manual portal publication
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_factorio_portal && env.FACTORIO_API_KEY == '' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.publish_factorio_portal && env.FACTORIO_API_KEY == '' }}
         shell: bash
         run: |
           echo "::error title=Missing FACTORIO_API_KEY::Add the Factorio Mod Portal API key as a GitHub Actions repository secret named FACTORIO_API_KEY."
           exit 1
 
       - name: Publish to Factorio Mod Portal
-        if: ${{ ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.publish_factorio_portal)) && env.FACTORIO_API_KEY != '' }}
+        if: ${{ ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.publish_factorio_portal)) && env.FACTORIO_API_KEY != '' }}
         shell: bash
         env:
           MOD_NAME: ${{ steps.metadata.outputs.name }}
