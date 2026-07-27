@@ -11,6 +11,7 @@ Date: 27. 07. 2026
     - Fixed incorrect burnt-result quantities when stacked fuels were consumed.
     - Fixed stacked fuel properties not always staying synchronized with changes made by other mods.
     - Added additional validation to prevent unsafe or ambiguous stacked-fuel conversions, eliminating potential item loss or duplication.
+    - Thanks to hunter_beij for reporting that stacked coal could bypass coal ash generation in Py Coal Processing.
 ---------------------------------------------------------------------------------------------------
 Version: 7.0.5
 Date: 27. 07. 2026
