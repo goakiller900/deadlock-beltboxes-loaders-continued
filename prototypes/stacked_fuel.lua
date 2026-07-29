@@ -1,4 +1,5 @@
 local DBL = require("prototypes.shared")
+require("prototypes.stacked_weight")
 
 local BUNDLE_PREFIX = "deadlock-stacked-fuel-residue-"
 local BUNDLE_RECIPE_PREFIX = "deadlock-stacked-fuel-residue-unpack-"
@@ -615,10 +616,6 @@ local function create_bundle(residue_name, residue, represented_count)
 		pick_sound = copy(residue.pick_sound),
 		drop_sound = copy(residue.drop_sound),
 	}
-	if residue.weight then
-		bundle.weight = residue.weight * represented_count
-	end
-
 	local recipe = {
 		type = "recipe",
 		name = recipe_name,
@@ -646,6 +643,15 @@ local function create_bundle(residue_name, residue, represented_count)
 	}
 
 	data:extend({bundle, recipe})
+	if not DBL.apply_represented_item_weight(name, residue_name, residue, represented_count) then
+		DBL.log_error(string.format(
+			"Cannot create exact residue bundle %s because its weight cannot be represented safely",
+			name
+		))
+		data.raw.item[name] = nil
+		data.raw.recipe[recipe_name] = nil
+		return nil
+	end
 	verified_exact_bundles[name] = true
 	DBL.debug(string.format(
 		"Created exact residue bundle %s representing %d %s",

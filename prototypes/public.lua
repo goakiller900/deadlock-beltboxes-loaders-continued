@@ -11,14 +11,14 @@ deadlock = {}
 
 local function get_recipe_category(recipe)
 	if recipe then
-		if recipe.categories and recipe.categories[1] then
-			return recipe.categories[1]
+		if recipe.categories then
+			return recipe.categories
 		end
 		if recipe.category then
 			return recipe.category
 		end
 	end
-	return "crafting"
+	return {"crafting"}
 end
 
 function deadlock.add_tier(tier_table)
@@ -181,12 +181,19 @@ function deadlock.add_stack(item_name, graphic_path, target_tech, icon_size, ite
 		DBL.log_warning(string.format("Refusing to create a recursive stack for exact residue bundle %s", item_name))
 		return
 	end
+	if DBL.is_exact_spoil_result_bundle(item_name) then
+		DBL.log_warning(string.format("Refusing to create a recursive stack for exact spoil-result bundle %s", item_name))
+		return
+	end
 	if not allowed_item_types[item_type] then
 		DBL.log_error(string.format("Item type not allowed for %s", item_name))
 		return
 	end
 	if not data.raw[item_type][item_name] then
 		DBL.log_error(string.format("Can't create stacks for item that doesn't exist %s", item_name))
+		return
+	end
+	if not DBL.validate_spoilable_stack_source(item_name, item_type) then
 		return
 	end
 	if icon_size and (icon_size ~= 32 and icon_size ~= 64 and icon_size ~= 128) then
@@ -201,7 +208,9 @@ function deadlock.add_stack(item_name, graphic_path, target_tech, icon_size, ite
 		local stack_size = deadlock.get_item_stack_density(item_name, item_type)
 		DBL.create_stacked_item(item_name, item_type, graphic_path, icon_size, stack_size, mipmap_levels)
 		DBL.create_stacking_recipes(item_name, item_type, stack_size)
-		DBL.update_stacked_item(item_name, item_type)
+		if DBL.update_stacked_item(item_name, item_type) == false then
+			return
+		end
 		if target_tech then
 			DBL.add_stacks_to_tech(item_name, target_tech)
 		end

@@ -1,5 +1,7 @@
 local DBL = require("prototypes.shared")
+require("prototypes.stacked_weight")
 require("prototypes.stacked_fuel")
+require("prototypes.stacked_spoilage")
 
 local function get_group(item, item_type)
 	local g = data.raw["item-group"][data.raw["item-subgroup"][data.raw[item_type][item].subgroup].group].name
@@ -78,7 +80,7 @@ function DBL.update_stacked_item(item_name, item_type)
 	end
 	if not data.raw.item[stacked_item_name] then
 		DBL.log_warning("Stacked item \""..stacked_item_name.."\" appears to have been deleted since it was created, skipping it.")
-		return
+		return false
 	end
 
 	local stack_size = deadlock.get_item_stack_density(item_name, item_type)
@@ -88,7 +90,18 @@ function DBL.update_stacked_item(item_name, item_type)
 	if data.raw[item_type][item_name].stack_size % stack_size > 0 then
 		DBL.log_warning(string.format("Full stack density for %s is reduced to %d from source stack size %d, doesn't divide cleanly by %d", stacked_item_name, (data.raw.item[stacked_item_name].stack_size * stack_size), data.raw[item_type][item_name].stack_size, stack_size))
 	end
+	if not DBL.update_stacked_spoilage(stacked_item_name, item_name, item_type) then
+		DBL.log_warning(string.format(
+			"Destroying unsafe spoilable stack %s because its spoil conversion cannot be represented exactly",
+			stacked_item_name
+		))
+		items_to_update[stacked_item_name] = nil
+		deadlock.destroy_stack(item_name)
+		return false
+	end
 	DBL.update_stacked_fuel(stacked_item_name, item_name, item_type)
+	DBL.update_stacked_weight(stacked_item_name, item_name, item_type)
+	return true
 end
 
 function DBL.deferred_stacked_item_updates()

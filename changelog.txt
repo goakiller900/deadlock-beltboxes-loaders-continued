@@ -1,4 +1,22 @@
 ---------------------------------------------------------------------------------------------------
+Version: 7.0.7
+Date: 29. 07. 2026
+  Changes:
+    - Added Foundry crafting support for compact loader and beltbox recipes when Space Age is enabled.
+    - Replaced the existing vanilla stacked-item icons with new 64px mipmapped artwork.
+    - Added stacked variants for additional Space Age resources and components, including calcite, carbon, holmium ore, holmium plate, ice, lithium, lithium plate, quantum processors, scrap, spoilage, tungsten carbide and tungsten plate.
+    - Added safe stacking support for bioflux, jelly, jellynuts, nutrients, raw fish, yumako and yumako mash.
+    - Stacking and unstacking spoilable items now preserves their freshness.
+    - Stacked spoilable items retain the original spoil time and produce the exact equivalent quantity when fully spoiled.
+  Bugfixes:
+    - Prevented automatic unstacking from resetting item freshness or quality.
+    - Prevented unsafe spoilable stacks from being created when their spoil result cannot be represented exactly, avoiding possible item loss or duplication.
+    - Fixed generated stacked items falling back to Factorio's default item weight, which allowed excessively large rocket shipments.
+    - Stacked-item rocket capacity now correctly scales with the number of items represented by each stack.
+  Credits:
+    - Thanks to yswb for contributing Foundry crafting support and compatibility handling for games without Space Age.
+    - Thanks to Supershadow30 for creating the new stacked-item artwork, testing the 7.0.7 build, confirming freshness preservation and reporting the rocket-capacity issue.
+---------------------------------------------------------------------------------------------------
 Version: 7.0.6
 Date: 27. 07. 2026
   Changes:

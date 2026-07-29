@@ -25,7 +25,9 @@ DBL.VANILLA_ITEMS = {
 	[2] = { "copper-cable", "iron-gear-wheel", "iron-stick", "sulfur", "plastic-bar", "solid-fuel", "electronic-circuit", "advanced-circuit" },
 	[3] = { "processing-unit", "battery", "uranium-ore", "uranium-235", "uranium-238" },
 }
-DBL.VANILLA_ICON_SIZE = 32
+-- Supershadow30's stacked icons use a 64 px base image followed by 32, 16,
+-- and 8 px mip levels in the same PNG. Factorio 2.1 infers those mip levels.
+DBL.VANILLA_ICON_SIZE = 64
 
 if settings.startup["deadlock-stacking-batch-stacking"].value then
 	DBL.RECIPE_MULTIPLIER = 4
