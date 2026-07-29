@@ -18,7 +18,7 @@ local function get_recipe_category(recipe)
 			return recipe.category
 		end
 	end
-	return "crafting"
+	return {"crafting"}
 end
 
 function deadlock.add_tier(tier_table)
