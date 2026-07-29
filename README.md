@@ -33,6 +33,11 @@ Continuation maintainer:
 
 - goakiller900
 
+Release contributors:
+
+- yswb — Foundry crafting support for loader and beltbox construction recipes
+- Supershadow30 — 64px mipmapped stacked-item artwork and native freshness-transfer research
+
 All credit for the original concept, graphics, implementation, balance, and API design belongs to the original authors and contributors.
 
 ## Unofficial continuation notice
@@ -116,6 +121,14 @@ residue stack. Exact conversions are rejected when recipes use probability,
 amount ranges, `extra_count_fraction`, quality modifiers, productivity, or
 `surface_conditions`.
 
+For spoilable items with a deterministic item `spoil_result`, the stacked item
+copies the original `spoil_ticks` unchanged and leaves freshness transfer to
+Factorio's native recipe handling. A normal stacked spoil result is used when
+the represented quantities match; otherwise a hidden deterministic exact-count
+bundle and unstacking recipe preserve the full result quantity. Trigger-based,
+recursive, missing, fractional, or freshness-overriding conversions fail
+closed, so an unsafe stacked prototype is not left active.
+
 | Parameter | Required | Description |
 |---|---:|---|
 | `item_name` | Yes | Name of the base item to stack, for example `iron-plate`. |
@@ -140,6 +153,9 @@ Do not pass implementation-only exact residue bundles back to
 `deadlock-stacked-fuel-residue-`; the API rejects attempts to stack them
 recursively.
 
+The same restriction applies to exact spoil-result bundles, whose item names
+start with `deadlock-stacked-spoil-result-`.
+
 ### `deadlock.get_item_stack_density(item_name, item_type)`
 
 Returns the effective density Deadlock would use for the item. This is the
@@ -161,7 +177,8 @@ fluid-containing, or otherwise noncanonical recipes fail closed.
 
 Reapplies late prototype updates to every stacked item registered through
 `deadlock.add_stack()`. This includes stack-size metadata, fuel energy,
-fuel-property copying, and exact burnt-result handling.
+fuel-property copying, exact burnt-result handling, spoil timers, and exact
+spoil-result handling.
 
 Deadlock calls this automatically from its own `data-final-fixes.lua`.
 Compatibility mods normally do not need to call it. If a mod changes source

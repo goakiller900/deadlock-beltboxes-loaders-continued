@@ -1,4 +1,18 @@
 ---------------------------------------------------------------------------------------------------
+Version: 7.0.7
+Date: 29. 07. 2026
+  Changes:
+    - Added Foundry crafting support for loader and beltbox construction recipes in Space Age.
+    - Replaced built-in stacked-item icons with new 64px mipmapped artwork.
+    - Added stacked variants for supported Space Age resources and components.
+    - Added safe stacked-item support for selected spoilable items, preserving native freshness behavior and exact spoil-result quantities.
+  Bugfixes:
+    - Prevented auto-unstacking from resetting spoilage freshness or item quality.
+    - Added validation to reject unsupported or ambiguous spoil-result and freshness conversions.
+  Credits:
+    - Thanks to yswb for reporting and implementing Foundry crafting support.
+    - Thanks to Supershadow30 for creating the new stacked-item artwork and for identifying Factorio's native freshness-transfer behavior.
+---------------------------------------------------------------------------------------------------
 Version: 7.0.6
 Date: 27. 07. 2026
   Changes:

@@ -1,5 +1,7 @@
 -- create vanilla stacks
 require("prototypes.vanilla_stacks")
+-- create guarded Space Age stacks when their source prototypes exist
+require("prototypes.space_age_stacks")
 
 -- hit the subgroups again to cover any added since data.lua load
 for _, group in pairs(data.raw["item-group"]) do
