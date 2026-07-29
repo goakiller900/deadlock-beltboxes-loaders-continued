@@ -1,4 +1,5 @@
 local DBL = require("prototypes.shared")
+require("prototypes.stacked_weight")
 require("prototypes.stacked_fuel")
 require("prototypes.stacked_spoilage")
 
@@ -99,6 +100,7 @@ function DBL.update_stacked_item(item_name, item_type)
 		return false
 	end
 	DBL.update_stacked_fuel(stacked_item_name, item_name, item_type)
+	DBL.update_stacked_weight(stacked_item_name, item_name, item_type)
 	return true
 end
 

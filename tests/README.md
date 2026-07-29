@@ -10,6 +10,9 @@ mocked Factorio environments:
 - `stacked_spoilage_spec.lua` covers copied spoil timers, matching stacked
   results, deterministic exact-count bundles, quality fields, idempotence, and
   unsupported spoil-result rejection.
+- `stacked_weight_spec.lua` covers explicit and automatically calculated source
+  weights, private weight-recipe isolation, represented recipe counts,
+  third-party registrations, density changes, and source-stack-size limits.
 - `space_age_stacks_spec.lua` covers Space Age and prototype guards, tiers,
   prototype types, and generated icon paths.
 - `auto_unstack_spec.lua` covers exact quality/freshness transfer, capacity and

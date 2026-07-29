@@ -1,4 +1,5 @@
 local DBL = require("prototypes.shared")
+require("prototypes.stacked_weight")
 
 local BUNDLE_PREFIX = "deadlock-stacked-spoil-result-"
 local BUNDLE_RECIPE_PREFIX = "deadlock-stacked-spoil-result-unpack-"
@@ -269,10 +270,6 @@ local function create_bundle(result_name, result, represented_count)
 		pick_sound = copy(result.pick_sound),
 		drop_sound = copy(result.drop_sound),
 	}
-	if result.weight then
-		bundle.weight = result.weight * represented_count
-	end
-
 	local recipe = {
 		type = "recipe",
 		name = recipe_name,
@@ -300,6 +297,15 @@ local function create_bundle(result_name, result, represented_count)
 	}
 
 	data:extend({bundle, recipe})
+	if not DBL.apply_represented_item_weight(name, result_name, result, represented_count) then
+		DBL.log_error(string.format(
+			"Cannot create exact spoil-result bundle %s because its weight cannot be represented safely",
+			name
+		))
+		data.raw.item[name] = nil
+		data.raw.recipe[recipe_name] = nil
+		return nil
+	end
 	verified_exact_bundles[name] = true
 	DBL.debug(string.format(
 		"Created exact spoil-result bundle %s representing %d %s",
