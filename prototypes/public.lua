@@ -11,8 +11,8 @@ deadlock = {}
 
 local function get_recipe_category(recipe)
 	if recipe then
-		if recipe.categories and recipe.categories[1] then
-			return recipe.categories[1]
+		if recipe.categories then
+			return recipe.categories
 		end
 		if recipe.category then
 			return recipe.category

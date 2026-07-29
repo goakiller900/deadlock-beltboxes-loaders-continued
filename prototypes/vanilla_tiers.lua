@@ -68,14 +68,14 @@ deadlock.add_tier({
 		{name = "iron-gear-wheel", type = "item", amount = 40},
 		{name = "lubricant", type = "fluid", amount = 20},
 	},
-	loader_category     = "crafting-with-fluid",
+	loader_category     =  {"crafting-with-fluid", "metallurgy"},
 	beltbox_ingredients = {
 		{name = "fast-transport-belt-beltbox", type = "item", amount = 1},
 		{name = "iron-plate", type = "item", amount = 30},
 		{name = "iron-gear-wheel", type = "item", amount = 30},
 		{name = "lubricant", type = "fluid", amount = 100},
 	},
-	beltbox_category    = "crafting-with-fluid",
+	beltbox_category    =  {"crafting-with-fluid", "metallurgy"},
 	beltbox_technology  = "deadlock-stacking-3",
 })
 if data.raw.technology["deadlock-stacking-3"] then
@@ -104,14 +104,14 @@ if mods["space-age"] then
 			{name = "tungsten-plate", type = "item", amount = 20},
 			{name = "lubricant", type = "fluid", amount = 20},
 		},
-		loader_category     = "crafting-with-fluid",
+		loader_category     =  {"crafting-with-fluid", "metallurgy"},
 		beltbox_ingredients = {
 			{name = "express-transport-belt-beltbox", type = "item", amount = 1},
 			{name = "tungsten-plate", type = "item", amount = 15},
 			{name = "iron-gear-wheel", type = "item", amount = 15},
 			{name = "lubricant", type = "fluid", amount = 100},
 		},
-		beltbox_category    = "crafting-with-fluid",
+		beltbox_category    =  {"crafting-with-fluid", "metallurgy"},
 		beltbox_technology  = "deadlock-stacking-4",
 	})
 	if data.raw.technology["deadlock-stacking-4"] then
