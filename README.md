@@ -125,9 +125,13 @@ For spoilable items with a deterministic item `spoil_result`, the stacked item
 copies the original `spoil_ticks` unchanged and leaves freshness transfer to
 Factorio's native recipe handling. A normal stacked spoil result is used when
 the represented quantities match; otherwise a hidden deterministic exact-count
-bundle and unstacking recipe preserve the full result quantity. Trigger-based,
-recursive, missing, fractional, or freshness-overriding conversions fail
-closed, so an unsafe stacked prototype is not left active.
+bundle and unstacking recipe preserve the full result quantity. Recursive,
+missing, fractional, freshness-overriding, and unapproved trigger conversions
+fail closed, so an unsafe stacked prototype is not left active. The built-in
+Space Age egg registrations support trigger-based spoilage only when a
+finite partial-stack proof shows that the complete source trigger can be
+repeated exactly at the configured density; unsupported densities remain
+unregistered.
 
 | Parameter | Required | Description |
 |---|---:|---|

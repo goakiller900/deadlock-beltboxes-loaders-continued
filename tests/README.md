@@ -3,12 +3,15 @@
 The Lua specifications run data-stage and runtime helper logic against small
 mocked Factorio environments:
 
+- `create_stack_spec.lua` covers fail-closed cleanup when another mod removes a
+  source prototype before deferred final-fixes validation.
 - `stacked_fuel_spec.lua` covers repository-derived stack densities, canonical
   and batch recipe validation, matching and mismatched residues, exact bundle
   reuse, current fuel properties, third-party conflicts, and fail-closed
   behavior.
 - `stacked_spoilage_spec.lua` covers copied spoil timers, matching stacked
-  results, deterministic exact-count bundles, quality fields, idempotence, and
+  results, deterministic exact-count bundles, exact trigger repetition,
+  probability and quality fields, partial-stack counts, idempotence, and
   unsupported spoil-result rejection.
 - `stacked_weight_spec.lua` covers explicit and automatically calculated source
   weights, private weight-recipe isolation, represented recipe counts,

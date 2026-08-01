@@ -75,8 +75,10 @@ end
 function DBL.update_stacked_item(item_name, item_type)
 	local stacked_item_name = string.format("deadlock-stack-%s", item_name)
 	if not data.raw[item_type][item_name] then
-		DBL.log_warning("Item \""..item_name.."\" appears to have been deleted since it was added to the deferred item updates list, skipping it.")
-		return
+		DBL.log_warning("Item \""..item_name.."\" appears to have been deleted since it was added to the deferred item updates list, destroying its generated stack.")
+		items_to_update[stacked_item_name] = nil
+		deadlock.destroy_stack(item_name)
+		return false
 	end
 	if not data.raw.item[stacked_item_name] then
 		DBL.log_warning("Stacked item \""..stacked_item_name.."\" appears to have been deleted since it was created, skipping it.")

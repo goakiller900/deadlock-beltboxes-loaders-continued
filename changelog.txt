@@ -1,4 +1,14 @@
 ---------------------------------------------------------------------------------------------------
+Version: 7.0.8
+Date: 01. 08. 2026
+  Changes:
+    - Added a stacked variant for superconductors.
+    - Added stacked variants for biter eggs and pentapod eggs when their full spoilage and enemy-spawning behavior can be represented exactly at the configured stack density.
+  Bugfixes:
+    - Added fail-closed validation for trigger-based spoilage counts, including partial stacked item stacks and source prototypes changed by other mods.
+  Credits:
+    - Thanks to Supershadow30 for providing the new stacked-item graphics.
+---------------------------------------------------------------------------------------------------
 Version: 7.0.7
 Date: 29. 07. 2026
   Changes:

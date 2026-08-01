@@ -82,6 +82,10 @@ local function expect_equal(actual, expected, message)
 	))
 end
 
+local function ceil_div(numerator, denominator)
+	return math.floor((numerator - 1) / denominator) + 1
+end
+
 local function add_item(name, properties)
 	properties = properties or {}
 	properties.type = properties.type or "item"
@@ -244,9 +248,134 @@ expect_equal(batch_stack.spoil_ticks, 600, "batch multiplier does not alter spoi
 expect_equal(batch_stack.spoil_result, "deadlock-stack-spoilage-batch", "batch multiplier does not alter represented spoil result")
 DBL.RECIPE_MULTIPLIER = 1
 
+-- Explicitly opted-in trigger spoilage is converted only when every possible
+-- partial stacked count has an exact equivalent source trigger count.
+DBL.STACK_SIZE = 5
+local biter_trigger = {
+	type = "direct",
+	probability = 0.75,
+	action_delivery = {
+		type = "instant",
+		source_effects = {
+			{type = "create-entity", entity_name = "big-biter", probability = 0.4},
+			{type = "create-smoke", smoke_name = "egg-smoke", probability = 0.2},
+		},
+	},
+}
+local biter_egg = add_item("biter-egg-test", {
+	stack_size = 100,
+	spoil_ticks = 108000,
+	spoil_to_trigger_result = {items_per_trigger = 25, trigger = biter_trigger},
+})
+local biter_egg_stack = add_stack_pair("biter-egg-test")
+expect(DBL.allow_exact_trigger_spoilage_source("biter-egg-test", "item"), "trigger spoilage source opt-in succeeds")
+expect(DBL.validate_spoilable_stack_source("biter-egg-test", "item"), "opted-in biter trigger validates")
+expect(DBL.update_stacked_spoilage("deadlock-stack-biter-egg-test", "biter-egg-test", "item"), "default-density biter trigger synchronizes")
+expect_equal(biter_egg_stack.spoil_ticks, 108000, "trigger spoilage copies the source timer")
+expect_equal(biter_egg_stack.spoil_result, nil, "trigger spoilage does not invent an item result")
+expect_equal(biter_egg_stack.spoil_to_trigger_result.items_per_trigger, 5, "five represented biter eggs preserve one trigger per 25 source eggs")
+expect_equal(#biter_egg_stack.spoil_to_trigger_result.trigger, 1, "default biter density needs one complete source trigger copy")
+expect(biter_egg_stack.spoil_to_trigger_result.trigger[1] ~= biter_trigger, "generated trigger is a deep copy")
+expect_equal(biter_egg_stack.spoil_to_trigger_result.trigger[1].probability, 0.75, "trigger-level probability is preserved")
+expect_equal(biter_egg_stack.spoil_to_trigger_result.trigger[1].action_delivery.source_effects[1].probability, 0.4, "effect probability is preserved")
+expect_equal(#biter_egg_stack.spoil_to_trigger_result.trigger[1].action_delivery.source_effects, 2, "multiple source effects are preserved")
+for stacked_count = 1, biter_egg_stack.stack_size do
+	expect_equal(
+		ceil_div(stacked_count, biter_egg_stack.spoil_to_trigger_result.items_per_trigger),
+		ceil_div(stacked_count * 5, biter_egg.spoil_to_trigger_result.items_per_trigger),
+		"default biter density preserves trigger count for partial stack " .. stacked_count
+	)
+end
+
+-- A non-default density can be accepted when the finite partial-stack domain
+-- is still exactly representable.
+DBL.STACK_SIZE = 8
+local biter_eight = add_item("biter-egg-eight", {
+	stack_size = 100,
+	spoil_ticks = 108000,
+	spoil_to_trigger_result = {items_per_trigger = 25, trigger = table.deepcopy(biter_trigger)},
+})
+local biter_eight_stack = add_stack_pair("biter-egg-eight")
+DBL.allow_exact_trigger_spoilage_source("biter-egg-eight", "item")
+expect(DBL.update_stacked_spoilage("deadlock-stack-biter-egg-eight", "biter-egg-eight", "item"), "density-eight biter trigger synchronizes")
+expect_equal(biter_eight_stack.spoil_to_trigger_result.items_per_trigger, 3, "density eight uses the proven partial-stack grouping")
+for stacked_count = 1, biter_eight_stack.stack_size do
+	expect_equal(
+		ceil_div(stacked_count, 3),
+		ceil_div(stacked_count * 8, biter_eight.spoil_to_trigger_result.items_per_trigger),
+		"density-eight biter conversion is exact for partial stack " .. stacked_count
+	)
+end
+
+-- Source trigger arrays are repeated in complete, deterministic order so each
+-- source probability-bearing trigger item retains an independent execution.
+local pentapod_trigger = {
+	{type = "direct", probability = 0.3, action_delivery = {type = "instant", source_effects = {{type = "create-entity", entity_name = "wriggler-a"}}}},
+	{type = "area", probability = 0.6, radius = 2, action_delivery = {type = "instant", source_effects = {{type = "create-entity", entity_name = "wriggler-b"}}}},
+}
+local pentapod_egg = add_item("pentapod-egg-test", {
+	stack_size = 20,
+	spoil_ticks = 54000,
+	spoil_quality_change = 1,
+	spoil_quality_min = "normal",
+	spoil_quality_max = "legendary",
+	spoil_to_trigger_result = {items_per_trigger = 1, trigger = pentapod_trigger},
+})
+local pentapod_egg_stack = add_stack_pair("pentapod-egg-test")
+DBL.allow_exact_trigger_spoilage_source("pentapod-egg-test", "item")
+expect(DBL.update_stacked_spoilage("deadlock-stack-pentapod-egg-test", "pentapod-egg-test", "item"), "pentapod trigger synchronizes at a non-default density")
+expect_equal(pentapod_egg_stack.spoil_to_trigger_result.items_per_trigger, 1, "pentapod stack triggers once per stacked item")
+expect_equal(#pentapod_egg_stack.spoil_to_trigger_result.trigger, 16, "each density-eight pentapod stack repeats both trigger items eight times")
+for repetition = 0, 7 do
+	local first = pentapod_egg_stack.spoil_to_trigger_result.trigger[repetition * 2 + 1]
+	local second = pentapod_egg_stack.spoil_to_trigger_result.trigger[repetition * 2 + 2]
+	expect_equal(first.type, "direct", "repeated trigger preserves first-item order " .. repetition)
+	expect_equal(first.probability, 0.3, "repeated trigger preserves first-item probability " .. repetition)
+	expect_equal(second.type, "area", "repeated trigger preserves second-item order " .. repetition)
+	expect_equal(second.probability, 0.6, "repeated trigger preserves second-item probability " .. repetition)
+	expect(first ~= pentapod_trigger[1] and second ~= pentapod_trigger[2], "each repeated trigger item is independently copied " .. repetition)
+end
+expect_equal(pentapod_egg_stack.spoil_ticks, pentapod_egg.spoil_ticks, "pentapod quality uses the unchanged base spoil duration")
+expect_equal(pentapod_egg_stack.spoil_quality_change, 1, "trigger spoilage copies quality change")
+expect_equal(pentapod_egg_stack.spoil_quality_min, "normal", "trigger spoilage copies quality minimum")
+expect_equal(pentapod_egg_stack.spoil_quality_max, "legendary", "trigger spoilage copies quality maximum")
+for stacked_count = 1, pentapod_egg_stack.stack_size do
+	expect_equal(
+		ceil_div(stacked_count, pentapod_egg_stack.spoil_to_trigger_result.items_per_trigger)
+			* (#pentapod_egg_stack.spoil_to_trigger_result.trigger / #pentapod_trigger),
+		ceil_div(stacked_count * 8, pentapod_egg.spoil_to_trigger_result.items_per_trigger),
+		"partial pentapod stack represents eight independent trigger executions per item " .. stacked_count
+	)
+end
+
+-- Unsupported count curves and unopted trigger sources remain fail-closed.
+DBL.STACK_SIZE = 10
+add_item("biter-egg-unsafe-density", {
+	stack_size = 100,
+	spoil_ticks = 108000,
+	spoil_to_trigger_result = {items_per_trigger = 25, trigger = table.deepcopy(biter_trigger)},
+})
+add_stack_pair("biter-egg-unsafe-density")
+DBL.allow_exact_trigger_spoilage_source("biter-egg-unsafe-density", "item")
+expect(not DBL.update_stacked_spoilage("deadlock-stack-biter-egg-unsafe-density", "biter-egg-unsafe-density", "item"), "unrepresentable density-ten biter curve fails closed")
+
+-- Late source changes are re-proven; foreign changes to the generated trigger
+-- are not silently overwritten.
+DBL.STACK_SIZE = 5
+biter_egg.spoil_to_trigger_result.items_per_trigger = 20
+expect(DBL.update_stacked_spoilage("deadlock-stack-biter-egg-test", "biter-egg-test", "item"), "third-party source trigger change is revalidated")
+expect_equal(biter_egg_stack.spoil_to_trigger_result.items_per_trigger, 4, "modified source trigger receives a newly proven grouping")
+biter_egg_stack.spoil_to_trigger_result.trigger[1].probability = 0.1
+expect(not DBL.update_stacked_spoilage("deadlock-stack-biter-egg-test", "biter-egg-test", "item"), "foreign stacked trigger modification fails closed")
+
 -- Unsupported or ambiguous sources fail closed.
 add_item("missing-result-source", {spoil_ticks = 60, spoil_result = "does-not-exist"})
 expect(not DBL.validate_spoilable_stack_source("missing-result-source", "item"), "missing spoil result is rejected")
+add_item("unopted-trigger-source", {
+	spoil_ticks = 60,
+	spoil_to_trigger_result = {items_per_trigger = 1, trigger = table.deepcopy(biter_trigger)},
+})
+expect(not DBL.validate_spoilable_stack_source("unopted-trigger-source", "item"), "trigger spoilage remains globally fail-closed without opt-in")
 add_item("trigger-source", {
 	spoil_ticks = 60,
 	spoil_result = "spoilage",
