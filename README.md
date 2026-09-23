@@ -37,6 +37,7 @@ Release contributors:
 
 - yswb — Foundry crafting support for loader and beltbox construction recipes
 - Supershadow30 — 64px mipmapped stacked-item artwork and native freshness-transfer research
+- Netmould — Factorio 2.1.20+ stacked-fuel prototype compatibility fix
 
 All credit for the original concept, graphics, implementation, balance, and API design belongs to the original authors and contributors.
 
