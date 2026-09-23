@@ -37,6 +37,7 @@ Release contributors:
 
 - yswb — Foundry crafting support for loader and beltbox construction recipes
 - Supershadow30 — 64px mipmapped stacked-item artwork and native freshness-transfer research
+- Netmould — Factorio 2.1.20+ stacked-fuel prototype compatibility fix
 
 All credit for the original concept, graphics, implementation, balance, and API design belongs to the original authors and contributors.
 
@@ -125,9 +126,13 @@ For spoilable items with a deterministic item `spoil_result`, the stacked item
 copies the original `spoil_ticks` unchanged and leaves freshness transfer to
 Factorio's native recipe handling. A normal stacked spoil result is used when
 the represented quantities match; otherwise a hidden deterministic exact-count
-bundle and unstacking recipe preserve the full result quantity. Trigger-based,
-recursive, missing, fractional, or freshness-overriding conversions fail
-closed, so an unsafe stacked prototype is not left active.
+bundle and unstacking recipe preserve the full result quantity. Recursive,
+missing, fractional, freshness-overriding, and unapproved trigger conversions
+fail closed, so an unsafe stacked prototype is not left active. The built-in
+Space Age egg registrations support trigger-based spoilage only when a
+finite partial-stack proof shows that the complete source trigger can be
+repeated exactly at the configured density; unsupported densities remain
+unregistered.
 
 | Parameter | Required | Description |
 |---|---:|---|

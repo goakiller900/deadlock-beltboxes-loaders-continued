@@ -4,6 +4,8 @@ require("prototypes.stacked_weight")
 local BUNDLE_PREFIX = "deadlock-stacked-spoil-result-"
 local BUNDLE_RECIPE_PREFIX = "deadlock-stacked-spoil-result-unpack-"
 local verified_exact_bundles = {}
+local exact_trigger_sources = {}
+local verified_exact_trigger_results = {}
 
 local item_prototype_types = {
 	"item",
@@ -47,6 +49,71 @@ local function copy(value)
 		return table.deepcopy(value)
 	end
 	return value
+end
+
+local function deep_equal(left, right)
+	if type(left) ~= type(right) then
+		return false
+	end
+	if type(left) ~= "table" then
+		return left == right
+	end
+	for key, value in pairs(left) do
+		if not deep_equal(value, right[key]) then
+			return false
+		end
+	end
+	for key in pairs(right) do
+		if left[key] == nil then
+			return false
+		end
+	end
+	return true
+end
+
+local function trigger_source_key(source_item_name, source_item_type)
+	return string.format("%s:%s", source_item_type, source_item_name)
+end
+
+local function exact_trigger_source_enabled(source_item_name, source_item_type)
+	return exact_trigger_sources[trigger_source_key(source_item_name, source_item_type)] == true
+end
+
+local function trigger_items(trigger)
+	if type(trigger) ~= "table" then
+		return nil
+	end
+	if type(trigger.type) == "string" then
+		return {trigger}
+	end
+
+	local count = 0
+	for index, trigger_item in ipairs(trigger) do
+		if index ~= count + 1
+			or type(trigger_item) ~= "table"
+			or type(trigger_item.type) ~= "string"
+		then
+			return nil
+		end
+		count = index
+	end
+	if count == 0 then
+		return nil
+	end
+	for key in pairs(trigger) do
+		if type(key) ~= "number" or key % 1 ~= 0 or key < 1 or key > count then
+			return nil
+		end
+	end
+	return trigger
+end
+
+local function valid_trigger_spoil_result(spoil_to_trigger_result)
+	return type(spoil_to_trigger_result) == "table"
+		and type(spoil_to_trigger_result.items_per_trigger) == "number"
+		and spoil_to_trigger_result.items_per_trigger > 0
+		and spoil_to_trigger_result.items_per_trigger % 1 == 0
+		and trigger_items(spoil_to_trigger_result.trigger) ~= nil
 end
 
 local function find_item_prototype(item_name)
@@ -118,7 +185,7 @@ local function source_is_spoilable(source_item)
 	return type(source_item.spoil_ticks) == "number" and source_item.spoil_ticks > 0
 end
 
-local function validate_source(source_item_name, source_item)
+local function validate_source(source_item_name, source_item_type, source_item)
 	if not source_is_spoilable(source_item) then
 		return true
 	end
@@ -130,11 +197,28 @@ local function validate_source(source_item_name, source_item)
 		return false
 	end
 	if source_item.spoil_to_trigger_result then
-		DBL.log_warning(string.format(
-			"Refusing to stack spoilable item %s because trigger-based spoil results are unsupported",
-			source_item_name
-		))
-		return false
+		if not exact_trigger_source_enabled(source_item_name, source_item_type) then
+			DBL.log_warning(string.format(
+				"Refusing to stack spoilable item %s because trigger-based spoil results require explicit exact-conversion opt-in",
+				source_item_name
+			))
+			return false
+		end
+		if source_item.spoil_result ~= nil then
+			DBL.log_warning(string.format(
+				"Refusing to stack spoilable item %s because combined item and trigger spoil results are unsupported",
+				source_item_name
+			))
+			return false
+		end
+		if not valid_trigger_spoil_result(source_item.spoil_to_trigger_result) then
+			DBL.log_warning(string.format(
+				"Refusing to stack spoilable item %s because its trigger spoil result is malformed",
+				source_item_name
+			))
+			return false
+		end
+		return true
 	end
 	if type(source_item.spoil_result) ~= "string" then
 		DBL.log_warning(string.format(
@@ -165,6 +249,69 @@ local function validate_source(source_item_name, source_item)
 		return false
 	end
 	return true
+end
+
+local function ceil_div(numerator, denominator)
+	return math.floor((numerator - 1) / denominator) + 1
+end
+
+local function exact_trigger_spoil_result(source_item_name, source_item, stacked_item, represented_count)
+	local source_result = source_item.spoil_to_trigger_result
+	local source_trigger_items = trigger_items(source_result and source_result.trigger)
+	local items_per_trigger = source_result and source_result.items_per_trigger
+	local maximum_stacked_count = stacked_item.stack_size
+	if not source_trigger_items
+		or type(items_per_trigger) ~= "number"
+		or items_per_trigger <= 0
+		or items_per_trigger % 1 ~= 0
+		or type(represented_count) ~= "number"
+		or represented_count <= 0
+		or represented_count % 1 ~= 0
+		or type(maximum_stacked_count) ~= "number"
+		or maximum_stacked_count <= 0
+		or maximum_stacked_count % 1 ~= 0
+	then
+		return nil
+	end
+
+	-- Factorio runs the source trigger ceil(count / items_per_trigger) times.
+	-- A stacked item represents represented_count source items, so find one
+	-- fixed trigger repetition and grouping that matches every possible partial
+	-- LuaItemStack count for this generated prototype.
+	local repetitions = ceil_div(represented_count, items_per_trigger)
+	local stacked_items_per_trigger = math.min(
+		maximum_stacked_count,
+		math.floor((repetitions * items_per_trigger) / represented_count)
+	)
+	if stacked_items_per_trigger < 1 then
+		return nil
+	end
+	for stacked_count = 1, maximum_stacked_count do
+		local source_trigger_count = ceil_div(stacked_count * represented_count, items_per_trigger)
+		local stacked_trigger_count = repetitions * ceil_div(stacked_count, stacked_items_per_trigger)
+		if source_trigger_count ~= stacked_trigger_count then
+			DBL.log_warning(string.format(
+				"Refusing to stack trigger-spoilable item %s at density %d because partial stack count %d would run %d triggers instead of %d",
+				source_item_name,
+				represented_count,
+				stacked_count,
+				stacked_trigger_count,
+				source_trigger_count
+			))
+			return nil
+		end
+	end
+
+	local repeated_trigger = {}
+	for _ = 1, repetitions do
+		for _, trigger_item in ipairs(source_trigger_items) do
+			table.insert(repeated_trigger, table.deepcopy(trigger_item))
+		end
+	end
+	local result = table.deepcopy(source_result)
+	result.items_per_trigger = stacked_items_per_trigger
+	result.trigger = repeated_trigger
+	return result
 end
 
 local function bundle_name(result_name, represented_count)
@@ -376,9 +523,17 @@ function DBL.is_exact_spoil_result_bundle(item_name)
 	return verified_exact_bundles[item_name] == true
 end
 
+function DBL.allow_exact_trigger_spoilage_source(source_item_name, source_item_type)
+	if type(source_item_name) ~= "string" or type(source_item_type) ~= "string" then
+		return false
+	end
+	exact_trigger_sources[trigger_source_key(source_item_name, source_item_type)] = true
+	return true
+end
+
 function DBL.validate_spoilable_stack_source(source_item_name, source_item_type)
 	local source_item = data.raw[source_item_type] and data.raw[source_item_type][source_item_name]
-	return source_item ~= nil and validate_source(source_item_name, source_item)
+	return source_item ~= nil and validate_source(source_item_name, source_item_type, source_item)
 end
 
 function DBL.update_stacked_spoilage(stacked_item_name, source_item_name, source_item_type)
@@ -389,10 +544,11 @@ function DBL.update_stacked_spoilage(stacked_item_name, source_item_name, source
 	end
 	if not source_is_spoilable(source_item) then
 		clear_spoil_properties(stacked_item)
+		verified_exact_trigger_results[stacked_item_name] = nil
 		copy_spoil_time_flag(stacked_item, source_item)
 		return true
 	end
-	if not validate_source(source_item_name, source_item) then
+	if not validate_source(source_item_name, source_item_type, source_item) then
 		return false
 	end
 	if not stack_recipes_preserve_native_freshness(source_item_name, stacked_item_name) then
@@ -410,6 +566,47 @@ function DBL.update_stacked_spoilage(stacked_item_name, source_item_name, source
 			stacked_item_name
 		))
 		return false
+	end
+	if source_item.spoil_to_trigger_result then
+		local desired_trigger_result = exact_trigger_spoil_result(
+			source_item_name,
+			source_item,
+			stacked_item,
+			source_ratio.numerator
+		)
+		if not desired_trigger_result then
+			return false
+		end
+
+		local existing_trigger_result = stacked_item.spoil_to_trigger_result
+		local verified_trigger_result = verified_exact_trigger_results[stacked_item_name]
+		if existing_trigger_result
+			and not deep_equal(existing_trigger_result, desired_trigger_result)
+			and not (verified_trigger_result and deep_equal(existing_trigger_result, verified_trigger_result))
+		then
+			DBL.log_warning(string.format(
+				"Refusing spoilable stack %s because its existing trigger spoil result cannot be proven exact",
+				stacked_item_name
+			))
+			return false
+		end
+		if stacked_item.spoil_result ~= nil then
+			DBL.log_warning(string.format(
+				"Refusing spoilable stack %s because its existing item spoil result cannot be combined safely with trigger spoilage",
+				stacked_item_name
+			))
+			return false
+		end
+
+		stacked_item.spoil_ticks = source_item.spoil_ticks
+		stacked_item.spoil_result = nil
+		stacked_item.spoil_to_trigger_result = desired_trigger_result
+		verified_exact_trigger_results[stacked_item_name] = table.deepcopy(desired_trigger_result)
+		for _, property_name in ipairs(spoil_properties) do
+			stacked_item[property_name] = copy(source_item[property_name])
+		end
+		copy_spoil_time_flag(stacked_item, source_item)
+		return true
 	end
 
 	local result, result_type = find_item_prototype(source_item.spoil_result)
@@ -436,10 +633,22 @@ function DBL.update_stacked_spoilage(stacked_item_name, source_item_name, source
 		))
 		return false
 	end
+	local existing_trigger_result = stacked_item.spoil_to_trigger_result
+	local verified_trigger_result = verified_exact_trigger_results[stacked_item_name]
+	if existing_trigger_result
+		and not (verified_trigger_result and deep_equal(existing_trigger_result, verified_trigger_result))
+	then
+		DBL.log_warning(string.format(
+			"Refusing spoilable stack %s because its existing trigger spoil result cannot be replaced safely",
+			stacked_item_name
+		))
+		return false
+	end
 
 	stacked_item.spoil_ticks = source_item.spoil_ticks
 	stacked_item.spoil_result = desired_result
 	stacked_item.spoil_to_trigger_result = nil
+	verified_exact_trigger_results[stacked_item_name] = nil
 	for _, property_name in ipairs(spoil_properties) do
 		stacked_item[property_name] = copy(source_item[property_name])
 	end

@@ -20,6 +20,7 @@ end
 
 local expected = {
 	["bioflux"] = {tier = 2, type = "capsule"},
+	["biter-egg"] = {tier = 1, type = "item", exact_trigger_spoilage = true},
 	["calcite"] = {tier = 1, type = "item"},
 	["carbon"] = {tier = 2, type = "item"},
 	["holmium-ore"] = {tier = 1, type = "item"},
@@ -30,21 +31,28 @@ local expected = {
 	["lithium"] = {tier = 2, type = "item"},
 	["lithium-plate"] = {tier = 3, type = "item"},
 	["nutrients"] = {tier = 2, type = "item"},
+	["pentapod-egg"] = {tier = 1, type = "item", exact_trigger_spoilage = true},
 	["quantum-processor"] = {tier = 3, type = "item"},
 	["raw-fish"] = {tier = 1, type = "capsule"},
 	["scrap"] = {tier = 1, type = "item"},
 	["spoilage"] = {tier = 1, type = "item"},
+	["superconductor"] = {tier = 2, type = "item"},
 	["tungsten-carbide"] = {tier = 2, type = "item"},
 	["tungsten-plate"] = {tier = 2, type = "item"},
 	["yumako"] = {tier = 1, type = "capsule"},
 	["yumako-mash"] = {tier = 2, type = "capsule"},
 }
 
-package.loaded["prototypes.shared"] = {VANILLA_ICON_SIZE = 64}
+local shared = {VANILLA_ICON_SIZE = 64, exact_trigger_sources = {}}
+function shared.allow_exact_trigger_spoilage_source(name, item_type)
+	shared.exact_trigger_sources[item_type .. ":" .. name] = true
+end
+package.loaded["prototypes.shared"] = shared
 
 local function run(space_age_enabled, available)
 	mods = space_age_enabled and {["space-age"] = true} or {}
 	data = {raw = {item = {}, capsule = {}}}
+	shared.exact_trigger_sources = {}
 	for name, registration in pairs(expected) do
 		if available == nil or available[name] then
 			data.raw[registration.type][name] = {name = name, type = registration.type}
@@ -52,13 +60,15 @@ local function run(space_age_enabled, available)
 	end
 	local calls = {}
 	deadlock = {
-		add_stack = function(name, icon, technology, icon_size, item_type)
+		add_stack = function(name, icon, technology, icon_size, item_type, mipmap_levels)
 			table.insert(calls, {
 				name = name,
 				icon = icon,
 				technology = technology,
 				icon_size = icon_size,
 				item_type = item_type,
+				mipmap_levels = mipmap_levels,
+				exact_trigger_spoilage = shared.exact_trigger_sources[item_type .. ":" .. name] == true,
 			})
 		end,
 	}
@@ -73,7 +83,7 @@ local no_prototypes = run(true, {})
 expect_equal(#no_prototypes, 0, "Space Age registrations disappear when source prototypes are absent")
 
 local calls = run(true)
-expect_equal(#calls, 19, "all supported Space Age registrations are created")
+expect_equal(#calls, 22, "all supported Space Age registrations are created")
 local seen = {}
 for _, call in ipairs(calls) do
 	local registration = expected[call.name]
@@ -83,6 +93,12 @@ for _, call in ipairs(calls) do
 	expect_equal(call.item_type, registration.type, "item prototype type is correct for " .. call.name)
 	expect_equal(call.technology, "deadlock-stacking-" .. registration.tier, "stacking tier is correct for " .. call.name)
 	expect_equal(call.icon_size, 64, "mipped icon base size is correct for " .. call.name)
+	expect_equal(call.mipmap_levels, nil, "Factorio 2.1 infers icon mipmaps for " .. call.name)
+	expect_equal(
+		call.exact_trigger_spoilage,
+		registration.exact_trigger_spoilage == true,
+		"trigger spoilage opt-in is limited to supported eggs for " .. call.name
+	)
 	local expected_icon = "__deadlock-beltboxes-loaders-continued__/graphics/icons/square/stacked-" .. call.name .. ".png"
 	expect_equal(call.icon, expected_icon, "icon path uses the internal item name for " .. call.name)
 end

@@ -11,6 +11,8 @@ local registrations = {
 	{tier = 1, name = "ice", type = "item"},
 	{tier = 1, name = "scrap", type = "item"},
 	{tier = 1, name = "spoilage", type = "item"},
+	{tier = 1, name = "biter-egg", type = "item", exact_trigger_spoilage = true},
+	{tier = 1, name = "pentapod-egg", type = "item", exact_trigger_spoilage = true},
 	{tier = 1, name = "jellynut", type = "capsule"},
 	{tier = 1, name = "yumako", type = "capsule"},
 	{tier = 1, name = "raw-fish", type = "capsule"},
@@ -19,6 +21,7 @@ local registrations = {
 	{tier = 2, name = "carbon", type = "item"},
 	{tier = 2, name = "holmium-plate", type = "item"},
 	{tier = 2, name = "lithium", type = "item"},
+	{tier = 2, name = "superconductor", type = "item"},
 	{tier = 2, name = "tungsten-carbide", type = "item"},
 	{tier = 2, name = "tungsten-plate", type = "item"},
 	{tier = 2, name = "bioflux", type = "capsule"},
@@ -34,6 +37,9 @@ local registrations = {
 for _, registration in ipairs(registrations) do
 	local prototypes = data.raw[registration.type]
 	if prototypes and prototypes[registration.name] then
+		if registration.exact_trigger_spoilage then
+			DBL.allow_exact_trigger_spoilage_source(registration.name, registration.type)
+		end
 		deadlock.add_stack(
 			registration.name,
 			string.format(
