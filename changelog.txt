@@ -1,13 +1,15 @@
 ---------------------------------------------------------------------------------------------------
 Version: 7.0.8
-Date: 01. 08. 2026
+Date: 23. 09. 2026
   Changes:
     - Added a stacked variant for superconductors.
     - Added stacked variants for biter eggs and pentapod eggs when their full spoilage and enemy-spawning behavior can be represented exactly at the configured stack density.
   Bugfixes:
     - Added fail-closed validation for trigger-based spoilage counts, including partial stacked item stacks and source prototypes changed by other mods.
+    - Fixed Factorio 2.1.20+ prototype validation for stacked fuels by converting legacy fuel category properties to the required fuel_categories table during final prototype processing.
   Credits:
     - Thanks to Supershadow30 for providing the new stacked-item graphics.
+    - Thanks to Netmould for the Factorio 2.1.20+ stacked-fuel prototype compatibility fix.
 ---------------------------------------------------------------------------------------------------
 Version: 7.0.7
 Date: 29. 07. 2026
