@@ -63,6 +63,7 @@ function DBL.create_stacked_item(item_name, item_type, graphic_path, icon_size, 
 			subgroup = string.format("stacks-%s", get_group(item_name, item_type)),
 			order = DBL.item_order[item_name],
 			allow_decomposition = false,
+			auto_recycle = false,
 		}
 	})
 	items_to_update[string.format("deadlock-stack-%s", item_name)] = {
@@ -139,6 +140,7 @@ function DBL.create_stacking_recipes(item_name, item_type, stack_size)
 			order = DBL.recipe_order[item_name].."[a]",
 			enabled = false,
 			allow_decomposition = false,
+			auto_recycle = false,
 			ingredients = {{type = "item", name = item_name, amount = stack_size * DBL.RECIPE_MULTIPLIER}},
 			results = {{type = "item", name = string.format("deadlock-stack-%s", item_name), amount = DBL.RECIPE_MULTIPLIER}},
 			energy_required = DBL.CRAFT_TIME * DBL.RECIPE_MULTIPLIER * stack_speed_modifier,
@@ -167,6 +169,7 @@ function DBL.create_stacking_recipes(item_name, item_type, stack_size)
 			order = DBL.recipe_order[item_name].."[b]",
 			enabled = false,
 			allow_decomposition = false,
+			auto_recycle = false,
 			ingredients = {{type = "item", name = string.format("deadlock-stack-%s", item_name), amount = DBL.RECIPE_MULTIPLIER}},
 			results = {{type = "item", name = item_name, amount = stack_size * DBL.RECIPE_MULTIPLIER}},
 			energy_required = DBL.CRAFT_TIME * DBL.RECIPE_MULTIPLIER * stack_speed_modifier,

@@ -23,6 +23,10 @@ end
 local warnings = {}
 local shared = {
 	item_order = { ["late-deleted-item"] = "a" },
+	recipe_order = { ["late-deleted-item"] = "a" },
+	STACK_SIZE = 5,
+	RECIPE_MULTIPLIER = 1,
+	CRAFT_TIME = 1,
 	debug = function() end,
 	log_warning = function(message) table.insert(warnings, message) end,
 }
@@ -57,6 +61,12 @@ function data:extend(prototypes)
 	end
 end
 
+settings = {
+	startup = {
+		["deadlock-stacking-hide-unstacking"] = {value = false},
+	},
+}
+
 local destroyed
 deadlock = {
 	destroy_stack = function(item_name)
@@ -76,6 +86,11 @@ shared.create_stacked_item(
 	nil
 )
 expect(data.raw.item["deadlock-stack-late-deleted-item"] ~= nil, "test stack is queued for deferred updates")
+expect(data.raw.item["deadlock-stack-late-deleted-item"].auto_recycle == false, "generated stacked items opt out of automatic recycling")
+
+shared.create_stacking_recipes("late-deleted-item", "item", 5)
+expect(data.raw.recipe["deadlock-stacks-stack-late-deleted-item"].auto_recycle == false, "stacking recipes opt out of automatic recycling")
+expect(data.raw.recipe["deadlock-stacks-unstack-late-deleted-item"].auto_recycle == false, "unstacking recipes opt out of automatic recycling")
 
 data.raw.item["late-deleted-item"] = nil
 shared.deferred_stacked_item_updates()
