@@ -1,4 +1,10 @@
 ---------------------------------------------------------------------------------------------------
+Version: 7.0.9
+Date: 29. 09. 2026
+  Bugfixes:
+    - Prevented generated stacked items and stacking/unstacking recipes from participating in automatic recycling recipe generation.
+    - Fixed recycler conflicts where recyclable items such as Fulgora scrap could be voided or converted into Deadlock stacked items instead of using their intended recycling recipe.
+---------------------------------------------------------------------------------------------------
 Version: 7.0.8
 Date: 23. 09. 2026
   Changes:
