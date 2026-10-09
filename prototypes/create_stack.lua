@@ -3,6 +3,25 @@ require("prototypes.stacked_weight")
 require("prototypes.stacked_fuel")
 require("prototypes.stacked_spoilage")
 
+-- Only types accepted by the public stacking API may replace a queued source item.
+-- Other mods can move a prototype between item categories before final fixes.
+local stackable_item_types = {
+	"item", "ammo", "gun", "tool", "repair-tool", "module",
+	"item-with-label", "item-with-tags", "capsule", "rail-planner",
+}
+
+local function resolve_item_type(item_name, registered_type)
+	if data.raw[registered_type] and data.raw[registered_type][item_name] then
+		return registered_type
+	end
+	for _, candidate_type in ipairs(stackable_item_types) do
+		if data.raw[candidate_type] and data.raw[candidate_type][item_name] then
+			return candidate_type
+		end
+	end
+	return nil
+end
+
 local function get_group(item, item_type)
 	local g = data.raw["item-group"][data.raw["item-subgroup"][data.raw[item_type][item].subgroup].group].name
 	if not g then
@@ -11,12 +30,12 @@ local function get_group(item, item_type)
 	return g
 end
 
-local function get_localised_name(item_name)
-	if data.raw.item[item_name] and data.raw.item[item_name].localised_name then
-		return data.raw.item[item_name].localised_name
-	else
-		return {"item-name."..item_name}
+local function get_localised_name(item_name, item_type)
+	local source = data.raw[item_type] and data.raw[item_type][item_name]
+	if source and source.localised_name then
+		return source.localised_name
 	end
+	return {"item-name."..item_name}
 end
 
 local items_to_update = {}
@@ -56,7 +75,7 @@ function DBL.create_stacked_item(item_name, item_type, graphic_path, icon_size, 
 		{
 			type = "item",
 			name = string.format("deadlock-stack-%s", item_name),
-			localised_name = {"item-name.deadlock-stacking-stack", get_localised_name(item_name), tostring(stack_size)},
+			localised_name = {"item-name.deadlock-stacking-stack", get_localised_name(item_name, item_type), tostring(stack_size)},
 			icons = stacked_icons,
 			stack_size = math.floor(data.raw[item_type][item_name].stack_size/stack_size),
 			flags = {},
@@ -75,11 +94,19 @@ end
 
 function DBL.update_stacked_item(item_name, item_type)
 	local stacked_item_name = string.format("deadlock-stack-%s", item_name)
-	if not data.raw[item_type][item_name] then
+	local current_type = resolve_item_type(item_name, item_type)
+	if not current_type then
 		DBL.log_warning("Item \""..item_name.."\" appears to have been deleted since it was added to the deferred item updates list, destroying its generated stack.")
 		items_to_update[stacked_item_name] = nil
 		deadlock.destroy_stack(item_name)
 		return false
+	end
+	if current_type ~= item_type then
+		DBL.log_warning(string.format(
+			"Item \"%s\" changed prototype type from %s to %s; updating its generated stack.",
+			item_name, item_type, current_type
+		))
+		item_type = current_type
 	end
 	if not data.raw.item[stacked_item_name] then
 		DBL.log_warning("Stacked item \""..stacked_item_name.."\" appears to have been deleted since it was created, skipping it.")
@@ -89,7 +116,7 @@ function DBL.update_stacked_item(item_name, item_type)
 	local stack_size = deadlock.get_item_stack_density(item_name, item_type)
 	data.raw.item[stacked_item_name].subgroup = string.format("stacks-%s", get_group(item_name, item_type))
 	data.raw.item[stacked_item_name].stack_size = math.floor(data.raw[item_type][item_name].stack_size/stack_size)
-	data.raw.item[stacked_item_name].localised_name = {"item-name.deadlock-stacking-stack", get_localised_name(item_name), tostring(stack_size)}
+	data.raw.item[stacked_item_name].localised_name = {"item-name.deadlock-stacking-stack", get_localised_name(item_name, item_type), tostring(stack_size)}
 	if data.raw[item_type][item_name].stack_size % stack_size > 0 then
 		DBL.log_warning(string.format("Full stack density for %s is reduced to %d from source stack size %d, doesn't divide cleanly by %d", stacked_item_name, (data.raw.item[stacked_item_name].stack_size * stack_size), data.raw[item_type][item_name].stack_size, stack_size))
 	end
@@ -133,7 +160,7 @@ function DBL.create_stacking_recipes(item_name, item_type, stack_size)
 		{
 			type = "recipe",
 			name = string.format("deadlock-stacks-stack-%s", item_name),
-			localised_name = {"recipe-name.deadlock-stacking-stack", get_localised_name(item_name)},
+			localised_name = {"recipe-name.deadlock-stacking-stack", get_localised_name(item_name, item_type)},
 			categories = {"stacking"},
 			group = "intermediate-products",
 			subgroup = data.raw.item[string.format("deadlock-stack-%s", item_name)].subgroup,
@@ -162,7 +189,7 @@ function DBL.create_stacking_recipes(item_name, item_type, stack_size)
 		{
 			type = "recipe",
 			name = string.format("deadlock-stacks-unstack-%s", item_name),
-			localised_name = {"recipe-name.deadlock-stacking-unstack", get_localised_name(item_name)},
+			localised_name = {"recipe-name.deadlock-stacking-unstack", get_localised_name(item_name, item_type)},
 			categories = {"unstacking"},
 			group = "intermediate-products",
 			subgroup = data.raw.item[string.format("deadlock-stack-%s", item_name)].subgroup,
