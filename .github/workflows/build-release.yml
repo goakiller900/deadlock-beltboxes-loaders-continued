@@ -72,6 +72,17 @@ jobs:
           print(f"artifact={artifact}")
           PY
 
+      - name: Install Lua for regression tests
+        run: sudo apt-get update -qq && sudo apt-get install -y lua5.4
+
+      - name: Run Lua regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          for test_file in tests/*_spec.lua; do
+            lua5.4 "$test_file"
+          done
+
       - name: Validate and build release archive
         run: python scripts/build_release.py
 

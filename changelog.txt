@@ -1,4 +1,13 @@
 ---------------------------------------------------------------------------------------------------
+Version: 7.1.0
+Date: 09. 10. 2026
+  Bugfixes:
+    - Fixed compatibility with Pyanodon's mods when another mod moves an existing item into a different supported prototype category (such as item to module) during data updates.
+    - Deferred stack updates now resolve the current source type and refresh stack capacity, subgroup, localisation, weight, fuel and spoilage instead of incorrectly destroying the stack.
+    - Added regression tests for late source deletion and item-to-module conversion.
+  Credits:
+    - Thanks to hunter_beij for reporting and investigating the Pyanodon's fawogae prototype-type issue.
+---------------------------------------------------------------------------------------------------
 Version: 7.0.9
 Date: 29. 09. 2026
   Bugfixes:
